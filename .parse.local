@@ -1,0 +1,10 @@
+{
+  "applications": {
+    "_default": {
+      "link": "app_recebiveis"
+    },
+    "app_recebiveis": {
+      "applicationId": "wTKqY1qaRbcFY7RzJWC2Nxos3Sk6Hi1AvdqyMHoM"
+    }
+  }
+}

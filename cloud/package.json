@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "axios": "*",
+    "firebase-admin": "13.0.2",
+    "ssh2-sftp-client": "11.0.0",
+    "unzipper": "*"
+  }
+}
