@@ -11,9 +11,10 @@ const Config = Parse.Object.extend('Config');
 const Cliente = Parse.Object.extend('Cliente');
 
 // Securely access credentials from environment variables
-const { SFTP_HOST, SFTP_USERNAME, SFTP_PASSWORD, SFTP_PRIVATE_KEY } = process.env;
+const { SFTP_HOST, SFTP_USERNAME, SFTP_PASSWORD, SFTP_PRIVATE_KEY, SFTP_HOST_HOMOL, SFTP_USERNAME_HOMOL, SFTP_PASSWORD_HOMOL, SFTP_PRIVATE_KEY_HOMOL } = process.env;
 
 const certData = Buffer.from(SFTP_PRIVATE_KEY, 'base64').toString('utf-8');
+const certDataHomol = Buffer.from(SFTP_PRIVATE_KEY_HOMOL, 'base64').toString('utf-8');
 
 const sftpConfig = {
     host: SFTP_HOST,
@@ -21,6 +22,16 @@ const sftpConfig = {
     username: SFTP_USERNAME,
     password: SFTP_PASSWORD,
     privateKey: certData,
+    // Add a readyTimeout to handle slow server responses
+    readyTimeout: 20000, // in milliseconds
+};
+const sftpConfigHomol = {
+    host: SFTP_HOST_HOMOL,
+    port: 9039,
+    username: SFTP_USERNAME_HOMOL,
+    password: SFTP_PASSWORD_HOMOL,
+    privateKey: certDataHomol,
+    passphrase: 'P@ysales123',
     // Add a readyTimeout to handle slow server responses
     readyTimeout: 20000, // in milliseconds
 };
@@ -458,7 +469,8 @@ Parse.Cloud.define('v1-sftp-get-json', async (req) => {
 Parse.Cloud.define('v1-sftp-list-all', async (req) => {
 
     const sftp = new Client();
-    await sftp.connect(sftpConfig);
+    // await sftp.connect(sftpConfig);
+    await sftp.connect(sftpConfigHomol);
 
     try {
         const files = await sftp.list(req.params.nomeDir);
