@@ -33,7 +33,7 @@ const sftpConfigHomol = {
     privateKey: certDataHomol,
     passphrase: 'P@ysales123',
     // Add a readyTimeout to handle slow server responses
-    readyTimeout: 20000, // in milliseconds
+    readyTimeout: 200000, // in milliseconds
 };
 
 async function salvarDadosNoBack4App(dadosJson, fileName, zipFilePath) {
@@ -221,48 +221,6 @@ async function processFileFromSftp(sftp, remoteFilePath) {
         const passThrough = new PassThrough();
         passThrough.on('error', (err) => console.error('PassThrough Error:', err));
 
-        // const stream = await sftp.get(remoteFilePath);
-        // sftp.get(remoteFilePath, passThrough).then(() => {
-        //   console.log(`Retrieving file from SFTP: ${remoteFilePath}`);
-
-        //   passThrough
-        //     .on('data', () => console.log('data received'))
-        //     .on('end', () => console.log('stream ended'))
-        //     .pipe(unzipper.Parse())
-        //     .on('entry', function (entry) {
-        //       const fileName = entry.path;
-        //       const type = entry.type; // 'Directory' or 'File'
-        //       console.log(`Handling entry: ${fileName}`);
-
-        //       if (fileName.endsWith('.json') && type === 'File') {
-        //         const chunks = [];
-        //         entry.on('data', (chunk) => {
-        //           console.log('Processing chunk');
-        //           chunks.push(chunk);
-        //         });
-
-        //         entry.on('end', async () => {
-        //           console.log(`Finished processing ${fileName}`);
-        //           try {
-        //             const content = Buffer.concat(chunks).toString('utf8');
-        //             const jsonData = JSON.parse(content);
-        //             console.log(`Parsed JSON: ${jsonData}`); // Handle the JSON data
-        //             // Add further processing here
-        //             await salvarDadosNoBack4App(jsonData, fileName, remoteFilePath, sftp);
-        //           } catch (err) {
-        //             console.error('Error parsing JSON:', err);
-        //           }
-        //         });
-        //       } else {
-        //         entry.autodrain(); // Ensure any unwanted data is flushed
-        //       }
-
-        //       entry.on('error', (err) => console.error('Entry Error:', err));
-        //     })
-        //     .on('error', (err) => console.error('Unzip error:', err));
-        // })
-        //   .catch(err => console.error('Error in SFTP get:', err));
-
         try {
             await sftp.get(remoteFilePath, passThrough);
         } catch (e) {
@@ -310,6 +268,10 @@ async function backupAndCleanupAgenda(ciaCNPJ) {
 
     try {
         const agendas = await agendaQuery.find({ useMasterKey: true });
+        if (agendas.length === 0) {
+            console.log(`No agendas found for ciaCNPJs: ${ciaCNPJ}`);
+            return;
+        }
         for (const agenda of agendas) {
             const agendaBkp = new AgendaBkp();
             agendaBkp.set('idAgenda', agenda.get('idAgenda'));
@@ -391,6 +353,46 @@ Parse.Cloud.define('v1-sftp-process-all', async (req) => {
         nomeDir: { required: true },
     },
 });
+
+
+Parse.Cloud.define('v1-sftp-process-homolog', async (req) => {
+    const sftp = new Client();
+    const todayDate = getTodayDateFormatted();
+    const processedFiles = [];
+    // console.log(`Today's date: ${todayDate}`);
+    console.log(`Processing files in directory: ${req.params.nomeDir}`);
+    // console.log(`SFTP configuration: ${JSON.stringify(sftpConfig)}`);
+
+    try {
+        await sftp.connect(sftpConfigHomol);
+        const fileList = await sftp.list(req.params.nomeDir);
+
+
+        for (const file of fileList) {
+            console.log(`Evaluating file: ${file.name}`);
+            if (!file.name.includes('AGENDA-BATCH')) continue;
+            const regex = /^(\d+)_(\w+)_(\d{6})_(SP_AGENDA-BATCH)-(\d{14})-(\d{14})\.json\.zip\.\w+$/;
+            const match = regex.exec(file.name);
+
+            if (match && match[3] === todayDate) {
+                console.log(`Processing file for today: ${file.name}`);
+                await processFileFromSftp(sftp, `${req.params.nomeDir}/${file.name}`);
+                processedFiles.push(file.name);
+            }
+        }
+    } catch (err) {
+        console.error('Error in SFTP operation:', err);
+    } finally {
+        await sftp.end();
+        console.log('SFTP connection closed');
+        return processedFiles;
+    }
+}, {
+    fields: {
+        nomeDir: { required: true },
+    },
+});
+
 
 function obterNomeArquivo(caminho) {
     const indiceUltimaBarra = caminho.lastIndexOf('/'); // Ou '\\' se for Windows

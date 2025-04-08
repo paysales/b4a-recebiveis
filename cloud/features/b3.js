@@ -180,28 +180,29 @@ async function optIn(data) {
 
   console.log('Token: ' + token);
 
-  // const payload = {
-  //   Optin: [data], // Usando os parâmetros da requisição
-  // };
-
-  const payload = JSON.stringify({
-    "Optin": [
-      {
-        "codigoExterno": "HL-04",
-        "cnpjSolicitante": "57033206000135",
-        "cnpjFinanciador": "57033206000135",
-        "cnpjCredenciadora": "",
-        "documentoUsuarioFinalRecebedor": "68428236000167",
-        "arranjoPagamento": "",
-        "dataAssinatura": "2025-04-04",
-        "dataEfetivacao": "2025-04-07",
-        "dataExpiracao": "2026-09-24",
-        "documentoTitular": ""
-      }
-    ]
-  });
+  const payload = {
+    Optin: [data], // Usando os parâmetros da requisição
+  };
 
 
+  console.log('Payload: ' + JSON.stringify(payload));
+  // const payload = JSON.stringify({
+  //   "Optin": [
+  //     {
+  //       "codigoExterno": "HL-04",
+  //       "cnpjSolicitante": "57033206000135",
+  //       "cnpjFinanciador": "57033206000135",
+  //       "cnpjCredenciadora": "",
+  //       "documentoUsuarioFinalRecebedor": "68428236000167",
+  //       "arranjoPagamento": "",
+  //       "dataAssinatura": "2025-04-04",
+  //       "dataEfetivacao": "2025-04-07",
+  //       "dataExpiracao": "2026-09-24",
+  //       "documentoTitular": ""
+  //     }
+  //   ]
+  // });
+  // const payload = JSON.stringify(data)
   console.log('Iniciando opt-in na B3...');
 
   try {
@@ -212,7 +213,7 @@ async function optIn(data) {
       }
     };
 
-    const response = await b3API.post(baseUrl + "/api/rcc-opt/v2/optin", payload, options);
+    const response = await b3API.post(baseUrl + "/api/rcc-opt/v2/optin", JSON.stringify(payload), options);
     return response.data;
   } catch (error) {
     console.error('Erro ao realizar opt-in na B3:', error);
@@ -229,15 +230,15 @@ async function consultaAgenda(data) {
   // console.log('Token: ' + token);
   const payload = JSON.stringify({
     "SolicitacaoConsultaAgenda": {
-      "documentoOriginador": "HC-04",
+      "documentoOriginador": "68428236000167",
       "cnpjFinanciador": "57033206000135",
       "cnpjSolicitante": "57033206000135",
-      "documentoTitular": "68428236000167",
+      "documentoTitular": "",
       "cnpjCredenciadora": "",
       "codigoArranjoPagamento": "",
-      "indicadorAceiteAgendaParcial": "false",
-      "dataInicio": "2025-04-04",
-      "dataFim": "2025-04-04"
+      "indicadorAceiteAgendaParcial": "Sim",
+      "dataInicio": "2025-04-07",
+      "dataFim": "2025-04-07"
     }
   });
   console.log('Iniciando consulta agenda na B3...');
