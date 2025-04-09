@@ -73,6 +73,6 @@ return pacote;
         ursIds: {
             required: true
         }
-	}
+        }
 });
  
