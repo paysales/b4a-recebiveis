@@ -356,6 +356,22 @@ function formatUser(u) {
 	}
 }
 
+Parse.Cloud.define("v1-validar-senha", async (req) => {
+	const user = req.user;
+	const { password } = req.params;
+
+	const passwordIsValid = await Parse.User.logIn(user.getUsername(), password);
+	return passwordIsValid ? true : false;
+}, {
+	requireUser: true,
+	fields: {
+		password: {
+			required: true
+		}
+	}
+});
+
+
 function formatCliente(u) {
 	return {
 		id: u.objectId,

@@ -27,6 +27,7 @@ async function getClientes(user) {
 	query.equalTo('admins', user);
 	// query.matchesQuery("admins", user);
 	query.include('agenda');
+	query.ascending('razaoSocial');
 	const results = await query.find({ useMasterKey: true });
 	return results.map((r) => formatClienteListAgenda(r.toJSON()));
 }

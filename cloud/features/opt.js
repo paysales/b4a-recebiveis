@@ -6,7 +6,6 @@ const B3 = require("./b3.js");
 
 Parse.Cloud.define('v1-opt-in', async (req) => {
 
-
     const queryConfig = new Parse.Query(Config);
     queryConfig.equalTo('nome', 'cnpjSolicitante');
     var config = await queryConfig.first({ useMasterKey: true });

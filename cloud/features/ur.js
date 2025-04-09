@@ -108,6 +108,7 @@ Parse.Cloud.define('v1-get-urs-by-agenda', async (req) => {
     queryUr.equalTo('agenda', agenda);
     queryUr.greaterThan('valorLivreTotal', 0);
     queryUr.greaterThanOrEqualTo('dataPrevistaLiquidacao', dataPrevistaLiquidacao.toISOString().split('T')[0]);
+    queryUr.doesNotExist('pacote');
     queryUr.ascending('dataPrevistaLiquidacao');
     // queryUr.limit(limit);
     // queryUr.skip(limit * req.params.page);
