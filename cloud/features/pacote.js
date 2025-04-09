@@ -139,8 +139,6 @@ function formatarPacote(pacote) { // Renomeei 'c' para 'pacote' para maior clare
     };
 }
 
-
-
 function formatPacote(c) {
     const ursData = c.urs ? c.urs.map((ur) => ({
         id: ur.id,
@@ -172,3 +170,39 @@ function formatUR(n) {
         valorLivreTotal: n.valorLivreTotal
     }
 }
+
+Parse.Cloud.define("v1-delete-pacote", async (req) => {
+    const query = new Parse.Query(Pacote);
+    query.include('urs');
+
+    try {
+        const pacote = await query.get(req.params.pacoteId, { useMasterKey: true });
+        if (!pacote) throw 'PACOTE_INVALIDO';
+        const ursParaAtualizar = pacote.get("urs");
+
+        if (ursParaAtualizar && ursParaAtualizar.length > 0) {
+            const ursAtualizadas = ursParaAtualizar.map((ur) => {
+                ur.unset("pacote"); // Supondo que o campo Pointer na classe Ur para Pacote se chame "pacote"
+                return ur;
+            });
+
+            // Salva todos os objetos Ur modificados de uma vez
+            await Parse.Object.saveAll(ursAtualizadas, { useMasterKey: true });
+            console.log(`${ursAtualizadas.length} URs tiveram a referência ao pacote ${req.params.pacoteId} removida.`);
+        } else {
+            console.log(`Não há URs relacionadas ao pacote ${req.params.pacoteId} para atualizar.`);
+        }
+        await pacote.destroy({ useMasterKey: true });
+        return true;
+    } catch (error) {
+        console.error(`Erro ao limpar referência do pacote ${req.params.pacoteId} nas URs:`, error);
+        throw error;
+    }
+}, {
+    requireUser: true,
+    fields: {
+        pacoteId: {
+            required: true
+        }
+    }
+});
