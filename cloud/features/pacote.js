@@ -56,7 +56,7 @@ Parse.Cloud.define('v1-create-pacote', async (req) => {
     const ursPointers = urs.map(ur => {
         return {
             __type: 'Pointer',
-            className: 'Ur',
+            className: 'UR',
             objectId: ur.id
         }
     })
@@ -93,18 +93,73 @@ Parse.Cloud.define('v1-create-pacote', async (req) => {
     }
 });
 
+
+Parse.Cloud.define("v1-get-vendor-pacotes", async (req) => {
+    const user = req.user;
+    if (user.get('type') !== 'Vendor') throw 'TIPO_USUARIO_VENDEDOR';
+    const query = new Parse.Query(Pacote);
+    query.include('vendedor');
+    query.include('urs');
+    const pacotes = await query.find({ useMasterKey: true });
+    // return pacotes.map((c) => formatPacote(c.toJSON()));
+    return pacotes.map(formatarPacote);
+}, {
+    requireUser: true
+});
+
+
+function formatarPacote(pacote) { // Renomeei 'c' para 'pacote' para maior clareza
+    const ursData = pacote.get('urs') ? pacote.get('urs').map((urObject) => ({
+        id: urObject.id,
+        arranjo: urObject.get('arranjo'),
+        cnpjCredenciadora: urObject.get('cnpjCredenciadora'),
+        dataPrevistaLiquidacao: urObject.get('dataPrevistaLiquidacao'),
+        valorLivreTotal: urObject.get('valorLivreTotal')
+    })) : [];
+
+    const vendedor = pacote.get('vendedor');
+    const vendedorData = vendedor ? {
+        id: vendedor.id,
+        razaoSocial: vendedor.get('razaoSocial'),
+        cnpj: vendedor.get('cnpj')
+    } : null;
+
+    return {
+        id: pacote.id,
+        clienteId: vendedorData ? vendedorData.id : null,
+        clienteNome: vendedorData ? vendedorData.razaoSocial : null,
+        clienteCNPJ: vendedorData ? vendedorData.cnpj : null,
+        status: pacote.get('status'),
+        valorBruto: pacote.get('valorBruto'),
+        prazoMedioPonderado: pacote.get('prazoMedioPonderado'),
+        taxaMes: pacote.get('taxaMes'),
+        desconto: pacote.get('desconto'),
+        valorLiquido: pacote.get('valorLiquido'),
+        urs: ursData
+    };
+}
+
+
+
 function formatPacote(c) {
+    const ursData = c.urs ? c.urs.map((ur) => ({
+        id: ur.id,
+        arranjo: ur.arranjo,
+        cnpjCredenciadora: ur.cnpjCredenciadora,
+        dataPrevistaLiquidacao: ur.dataPrevistaLiquidacao,
+        valorLivreTotal: ur.valorLivreTotal
+    })) : [];
     return {
         id: c.objectId,
         clienteId: c.vendedor.id,
         clienteNome: c.vendedor.razaoSocial,
         clienteCNPJ: c.vendedor.cnpj,
         valorBruto: c.valorBruto,
-        parazoMedioPonderado: c.prazoMedioPonderado,
+        prazoMedioPonderado: c.prazoMedioPonderado,
         taxaMes: c.taxaMes,
         desconto: c.desconto,
         valorLiquido: c.valorLiquido,
-        urs: c.urs.map((n) => formatUR(n.toJSON()))
+        urs: ursData
     }
 }
 
