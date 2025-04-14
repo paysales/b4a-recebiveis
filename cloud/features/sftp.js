@@ -315,19 +315,22 @@ async function deleteAllRelatedURRecords(agenda) {
     }
 }
 
-// Main Cloud Function to interface with SFTP and process files
-Parse.Cloud.define('v1-sftp-process-all', async (req) => {
+
+Parse.Cloud.job('v1-process-sftp-prod', async (req) => {
+    const sftpDir = "/ArqsBatch";
+    const listaProcessados = await processSFTPFile(sftpDir);
+    return listaProcessados;
+});
+
+async function processSFTPFile(sftpDir) {
+
     const sftp = new Client();
     const todayDate = getTodayDateFormatted();
     const processedFiles = [];
-    // console.log(`Today's date: ${todayDate}`);
-    // console.log(`Processing files in directory: ${req.params.nomeDir}`);
-    // console.log(`SFTP configuration: ${JSON.stringify(sftpConfig)}`);
 
     try {
         await sftp.connect(sftpConfig);
-        const fileList = await sftp.list(req.params.nomeDir);
-
+        const fileList = await sftp.list(sftpDir);
 
         for (const file of fileList) {
             console.log(`Evaluating file: ${file.name}`);
@@ -337,7 +340,7 @@ Parse.Cloud.define('v1-sftp-process-all', async (req) => {
 
             if (match && match[3] === todayDate) {
                 console.log(`Processing file for today: ${file.name}`);
-                await processFileFromSftp(sftp, `${req.params.nomeDir}/${file.name}`);
+                await processFileFromSftp(sftp, `${sftpDir}/${file.name}`);
                 processedFiles.push(file.name);
             }
         }
@@ -348,6 +351,43 @@ Parse.Cloud.define('v1-sftp-process-all', async (req) => {
         console.log('SFTP connection closed');
         return processedFiles;
     }
+}
+
+// Main Cloud Function to interface with SFTP and process files
+Parse.Cloud.define('v1-sftp-process-all', async (req) => {
+
+    const sftpDir = req.params.nomeDir;
+    const listaProcessados = await processSFTPFile(sftpDir);
+    return listaProcessados;
+
+    // const sftp = new Client();
+    // const todayDate = getTodayDateFormatted();
+    // const processedFiles = [];
+
+    // try {
+    //     await sftp.connect(sftpConfig);
+    //     const fileList = await sftp.list(req.params.nomeDir);
+
+
+    //     for (const file of fileList) {
+    //         console.log(`Evaluating file: ${file.name}`);
+    //         if (!file.name.includes('AGENDA-BATCH')) continue;
+    //         const regex = /^(\d+)_(\w+)_(\d{6})_(SP_AGENDA-BATCH)-(\d{14})-(\d{14})\.json\.zip\.\w+$/;
+    //         const match = regex.exec(file.name);
+
+    //         if (match && match[3] === todayDate) {
+    //             console.log(`Processing file for today: ${file.name}`);
+    //             await processFileFromSftp(sftp, `${req.params.nomeDir}/${file.name}`);
+    //             processedFiles.push(file.name);
+    //         }
+    //     }
+    // } catch (err) {
+    //     console.error('Error in SFTP operation:', err);
+    // } finally {
+    //     await sftp.end();
+    //     console.log('SFTP connection closed');
+    //     return processedFiles;
+    // }
 }, {
     fields: {
         nomeDir: { required: true },
@@ -442,10 +482,6 @@ Parse.Cloud.job('v1-sftp-get-agenda', async (req) => {
         console.log('SFTP connection closed');
         return processedFiles;
     }
-}, {
-    fields: {
-        nomeDir: { required: true },
-    },
 });
 
 

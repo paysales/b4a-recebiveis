@@ -1,5 +1,9 @@
 const axios = require("axios");
 const https = require("https");
+const Pacote = Parse.Object.extend('Pacote');
+const Ur = Parse.Object.extend('UR');
+const Config = Parse.Object.extend('Config');
+const Cliente = Parse.Object.extend('Cliente');
 
 const { CRT, KEY, CLIENT_ID, CLIENT_SECRET, CRT_HOMOL, KEY_HOMOL, CLIENT_ID_HOMOL, CLIENT_SECRET_HOMOL, ENV } = process.env;
 
@@ -262,3 +266,111 @@ module.exports = {
   obterTokenB3,
   optIn,
 };
+
+Parse.Cloud.define('v1-registrar-contrato', async (req) => {
+  const token = await obterTokenB3();
+
+  const query = new Parse.Query(Pacote);
+  query.include('urs');
+  query.include('vendedor');
+  const pacote = await query.get(req.params.pacoteId, { useMasterKey: true });
+  if (!pacote) throw 'PACOTE_INVALIDO';
+
+  const urs = pacote.get('urs');
+  if (!urs || urs.length === 0) throw 'URS_INVALIDO';
+
+  const vendedor = pacote.get('vendedor');
+  if (!vendedor) throw 'VENDEDOR_INVALIDO';
+
+  //comprador
+  const queryCliente = new Parse.Query(Cliente);
+  queryCliente.include('banco');
+  queryCliente.equalTo('admins', req.user);
+  const comprador = await queryCliente.first({ useMasterKey: true });
+  if (!comprador) throw 'COMPRADOR_INVALIDO';
+
+  const banco = comprador.get('banco');
+  if (!banco) throw 'BANCO_INVALIDO';
+
+  let queryConfig = new Parse.Query(Config);
+  queryConfig.equalTo('nome', 'CodContrato');
+  let config = await queryConfig.first({ useMasterKey: true });
+  let codContrato = 0;
+  if (config) codContrato = parseInt(config.get('valor'));
+  codContrato++;
+  const today = new Date().toISOString().split('T')[0];
+  const year = today.split('-')[0];
+  const yy = year.slice(-2);
+  const codContratoStr = `CTR-${codContrato}/${yy}`;
+  await Parse.Config.save({ 'CodContrato': codContrato }, { useMasterKey: true });
+
+  queryConfig = new Parse.Query(Config);
+  queryConfig.equalTo('nome', 'cnpjFinanciador');
+  config = await queryConfig.first({ useMasterKey: true });
+  const cnpjFinanciador = config.get('valor');
+
+  queryConfig = new Parse.Query(Config);
+  queryConfig.equalTo('nome', 'cnpjSolicitante');
+  config = await queryConfig.first({ useMasterKey: true });
+  const cnpjSolicitante = config.get('valor');
+
+
+  // verificar se conta vai dígito e CNPJ formatado ou não
+  const payload = JSON.stringify({
+    "data": {
+      "codigoExternoContrato": codContratoStr,
+      "identificadorContrato": codContratoStr,
+      "documentoContratanteDivida": vendedor.get('cnpj'),
+      "indicadorRenegociacao": 0,
+      "cnpjParticipante": cnpjFinanciador,
+      "cnpjDetentor": cnpjFinanciador,
+      "codigoTipoEfeitoContrato": 1,
+      "valorSaldoDevedorOuLimite": pacote.get('valorBruto'),
+      "valorMinimoMantido": pacote.get('valorBruto'),
+      "dataAssinatura": today,
+      "dataVencimento": today,
+      "codigoModalidadeOperacao": 1,
+      "codigoRegraDivisao": 1,
+      "domicilio": {
+        "codigoAgencia": banco.get('agencia'),
+        "numeroConta": banco.get('conta'),
+        "codigoISPB": banco.get('ispb'),
+        "documentoTitularConta": comprador.get('cnpj'),
+        "tipoConta": "CC"
+      },
+      "recebiveisAbrangidos": [
+        ...urs.map((ur) => {
+          return {
+            "cnpjsCredenciadora": [ur.get('cnpjCredenciadora')],
+            "documentosUsuarioFinalRecebedor": [vendedor.get('cnpj')],
+            "codigosArranjoPagamento": [ur.get('arranjo')],
+            "dataLiquidacaoInicial": ur.get('dataPrevistaLiquidacao'),
+            "dataLiquidacaoFinal": ur.get('dataPrevistaLiquidacao'),
+            "valorOnerar": ur.get('valor')
+          }
+        })
+      ]
+    }
+  });
+
+  // return payload;
+
+  try {
+    const options = {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    };
+    const response = await b3API.post(baseUrl + "/api/rcc-efeitos-contratos/v1/definicao-unidades-recebiveis/generica", payload, options);
+    return response.data;
+  } catch (error) {
+    console.error('Erro ao realizar registro de contrato na B3:', error);
+    throw error;
+  }
+}, {
+  requireUser: true,
+  fields: {
+    pacoteId: { required: true },
+  }
+});

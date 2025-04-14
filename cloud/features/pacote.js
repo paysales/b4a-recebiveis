@@ -1,8 +1,10 @@
 const Cliente = Parse.Object.extend('Cliente');
 const Agenda = Parse.Object.extend('Agenda');
 const Ur = Parse.Object.extend('UR');
+const UrPacote = Parse.Object.extend('URPacote');
 const Config = Parse.Object.extend('Config');
 const Pacote = Parse.Object.extend('Pacote');
+const TaxaContrato = Parse.Object.extend('TaxaContrato');
 
 Parse.Cloud.define('v1-create-pacote', async (req) => {
     const queryAgenda = new Parse.Query(Agenda);
@@ -14,6 +16,14 @@ Parse.Cloud.define('v1-create-pacote', async (req) => {
     const cliente = await queryCliente.first({ useMasterKey: true });
     if (!cliente) throw 'CLIENTE_INVALIDO';
 
+    //buscar taxa de contrato
+    const queryTaxaContrato = new Parse.Query(TaxaContrato);
+    queryTaxaContrato.greaterThanOrEqualTo('valor', req.params.valorBruto);
+    queryTaxaContrato.descending('valor');
+    const taxaContrato = await queryTaxaContrato.first({ useMasterKey: true });
+    if (!taxaContrato) throw 'TAXA_CONTRATO_INVALIDA';
+    const taxa = taxaContrato.get('taxa');
+
     const pacote = new Pacote();
     pacote.set('vendedor', cliente);
     pacote.set('valorBruto', req.params.valorBruto);
@@ -21,6 +31,7 @@ Parse.Cloud.define('v1-create-pacote', async (req) => {
     pacote.set('taxaMes', req.params.taxaMes);
     pacote.set('desconto', req.params.desconto);
     pacote.set('valorLiquido', req.params.valorLiquido);
+    pacote.set('taxaContratoPaySales', taxa);
     await pacote.save(null, { useMasterKey: true });
 
 
@@ -97,15 +108,45 @@ Parse.Cloud.define('v1-create-pacote', async (req) => {
 Parse.Cloud.define("v1-get-vendor-pacotes", async (req) => {
     const user = req.user;
     if (user.get('type') !== 'Vendor') throw 'TIPO_USUARIO_VENDEDOR';
-    const query = new Parse.Query(Pacote);
-    query.include('vendedor');
-    query.include('urs');
-    const pacotes = await query.find({ useMasterKey: true });
-    // return pacotes.map((c) => formatPacote(c.toJSON()));
-    return pacotes.map(formatarPacote);
+
+    const Cliente = Parse.Object.extend("Cliente");
+    const queryCliente = new Parse.Query(Cliente);
+    queryCliente.equalTo("admins", user);
+    try {
+        const clientesAdmin = await queryCliente.find({ useMasterKey: true });
+
+        if (clientesAdmin.length === 0) {
+            throw 'SEM_CLIENTES';
+        }
+        const query = new Parse.Query(Pacote);
+        query.include('vendedor');
+        query.include('urs');
+        query.containedIn('vendedor', clientesAdmin);
+        const pacotes = await query.find({ useMasterKey: true });
+        return pacotes.map(formatarPacote);
+
+    } catch (error) {
+        throw error;
+    }
 }, {
     requireUser: true
 });
+
+Parse.Cloud.define("v1-get-buyer-pacotes", async (req) => {
+    const user = req.user;
+    if (user.get('type') !== 'Buyer') throw 'TIPO_USUARIO_COMPRADOR';
+
+    const query = new Parse.Query(Pacote);
+    query.include('vendedor');
+    query.include('urs');
+    query.equalTo('status', 'disponivel');
+    const pacotes = await query.find({ useMasterKey: true });
+    return pacotes.map(formatarPacote);
+
+}, {
+    requireUser: true
+});
+
 
 
 function formatarPacote(pacote) { // Renomeei 'c' para 'pacote' para maior clareza
@@ -206,3 +247,48 @@ Parse.Cloud.define("v1-delete-pacote", async (req) => {
         }
     }
 });
+
+Parse.Cloud.define("v1-comprar-pacote", async (req) => {
+    const user = req.user;
+    if (user.get('type') !== 'Buyer') throw 'TIPO_USUARIO_COMPRADOR';
+
+    const query = new Parse.Query(Pacote);
+    query.include('urs');
+    const pacote = await query.get(req.params.pacoteId, { useMasterKey: true });
+    if (!pacote) throw 'PACOTE_INVALIDO';
+
+    if (pacote.get('status') !== 'disponivel') throw 'PACOTE_NAO_DISPONIVEL';
+
+    const queryCliente = new Parse.Query(Cliente);
+    queryCliente.equalTo('admins', req.user);
+    const cliente = await queryCliente.first({ useMasterKey: true });
+    if (!cliente) throw 'CLIENTE_INVALIDO';
+
+    const urs = pacote.get('urs');
+    if (!urs || urs.length === 0) throw 'SEM_URS';
+    //copiar as urs para tabela de Urs Pacote
+    const ursPacote = urs.map((ur) => {
+        const urPacote = new UrPacote();
+        urPacote.set('arranjo', ur.get('arranjo'));
+        urPacote.set('dataPrevistaLiquidacao', ur.get('dataPrevistaLiquidacao'));
+        urPacote.set('valor', ur.get('valorLivreTotal'));
+        urPacote.set('cnpjCredenciadora', ur.get('cnpjCredenciadora'));
+        urPacote.set('pacote', pacote);
+        return urPacote;
+    });
+    await Parse.Object.saveAll(ursPacote, { useMasterKey: true });
+    pacote.set('status', 'em negociacao');
+    pacote.set('comprador', cliente);
+    await pacote.save(null, { useMasterKey: true });
+
+    return formatUR(ursPacote[0].toJSON());
+
+}, {
+    requireUser: true,
+    fields: {
+        pacoteId: {
+            required: true
+        }
+    }
+});
+

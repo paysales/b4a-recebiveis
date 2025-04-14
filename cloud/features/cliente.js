@@ -1,6 +1,4 @@
-const b3 = require('./b3.js');
-const brasilApi = require("./brasil_api.js");
-
+const Pacote = Parse.Object.extend('Pacote');
 const Cliente = Parse.Object.extend('Cliente');
 
 Parse.Cloud.define('v1-create-cliente', async (req) => {
@@ -36,6 +34,50 @@ Parse.Cloud.define('v1-get-clientes', async (req) => {
 	return await getClientes(req.user);
 }, {
 	requireUser: true
+});
+
+
+Parse.Cloud.define('v1-get-hp-buyer', async (req) => {
+	if (!req.user) throw 'USUARIO_OBRIGATORIO';
+
+	const query = new Parse.Query(Cliente);
+	query.equalTo('admins', req.user);
+	const cliente = await query.first({ useMasterKey: true });
+	if (!cliente) throw 'CLIENTE_INVALIDO';
+
+	const queryPacote = new Parse.Query(Pacote);
+	queryPacote.equalTo('comprador', cliente);
+	queryPacote.include('urs');
+	const pacotes = await queryPacote.find({ useMasterKey: true });
+
+	const dataRef = new Date();
+	const numMilSeconds = dataRef.getTime();
+	const horaMlSeconds = 60 * 60 * 1000;
+	const dataAtual = new Date(numMilSeconds - (4 * horaMlSeconds)).toISOString().split('T')[0];
+
+	var valorTotal = 0.0;
+	var valorHoje = 0.0;
+	for (const p of pacotes) {
+		valorTotal += p.get('valorBruto');
+		const urs = p.get('urs');
+		if (urs) {
+			const queryUr = new Parse.Query(Ur);
+			queryUr.equalTo('dataPrevistaLiquidacao', dataAtual);
+			const ursHoje = await queryUr.find({ useMasterKey: true });
+			if (ursHoje.length > 0) {
+				valorHoje += p.get('valorBruto');
+			}
+		}
+	}
+	const listUrs = pacotes.map(p => p.get('urs'));
+
+
+
+	const uniqueUrs = Array.from(new Set(listUrs));
+
+	return pacotes.map(formatarPacote);
+}, {
+	requireUser: true,
 });
 
 // Parse.Cloud.define('v1-get-cliente', async (req) => {
