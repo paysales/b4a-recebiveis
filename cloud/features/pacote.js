@@ -148,7 +148,6 @@ Parse.Cloud.define("v1-get-buyer-pacotes", async (req) => {
 });
 
 
-
 function formatarPacote(pacote) { // Renomeei 'c' para 'pacote' para maior clareza
     const ursData = pacote.get('urs') ? pacote.get('urs').map((urObject) => ({
         id: urObject.id,
@@ -178,28 +177,6 @@ function formatarPacote(pacote) { // Renomeei 'c' para 'pacote' para maior clare
         valorLiquido: pacote.get('valorLiquido'),
         urs: ursData
     };
-}
-
-function formatPacote(c) {
-    const ursData = c.urs ? c.urs.map((ur) => ({
-        id: ur.id,
-        arranjo: ur.arranjo,
-        cnpjCredenciadora: ur.cnpjCredenciadora,
-        dataPrevistaLiquidacao: ur.dataPrevistaLiquidacao,
-        valorLivreTotal: ur.valorLivreTotal
-    })) : [];
-    return {
-        id: c.objectId,
-        clienteId: c.vendedor.id,
-        clienteNome: c.vendedor.razaoSocial,
-        clienteCNPJ: c.vendedor.cnpj,
-        valorBruto: c.valorBruto,
-        prazoMedioPonderado: c.prazoMedioPonderado,
-        taxaMes: c.taxaMes,
-        desconto: c.desconto,
-        valorLiquido: c.valorLiquido,
-        urs: ursData
-    }
 }
 
 function formatUR(n) {
@@ -263,6 +240,33 @@ Parse.Cloud.define("v1-comprar-pacote", async (req) => {
     queryCliente.equalTo('admins', req.user);
     const cliente = await queryCliente.first({ useMasterKey: true });
     if (!cliente) throw 'CLIENTE_INVALIDO';
+    //comissão da PaySales
+    const taxaPaySales = cliente.get('taxaPaySales');
+
+
+    //vamos pegar a taxa de contrato
+    const valorBruto = pacote.get('valorBruto');    //taxa de contrato
+    const queryTaxaContrato = new Parse.Query(TaxaContrato);
+    // Busca todas as faixas onde o valor inicial é menor ou igual ao valor do contrato
+    queryTaxaContrato.lessThanOrEqualTo("valorInicial", valorBruto);
+    // Ordena as faixas em ordem decrescente pelo valor inicial
+    queryTaxaContrato.descending("valorInicial");
+    // Limita o resultado a 1 para pegar a faixa com o maior valor inicial
+    queryTaxaContrato.limit(1);
+    let taxa = 0;
+    try {
+        const faixaEncontrada = await queryTaxaContrato.first({ useMasterKey: true });
+
+        if (faixaEncontrada) {
+            taxa = faixaEncontrada.get("taxa");
+        } else {
+            throw 'TAXA_CONTRATO_INVALIDA';
+        }
+    } catch (error) {
+        throw error;
+    }
+    //comissão da PaySales
+    const valorComissaoPaySales = valorBruto * taxaPaySales / 100;
 
     const urs = pacote.get('urs');
     if (!urs || urs.length === 0) throw 'SEM_URS';
@@ -279,9 +283,11 @@ Parse.Cloud.define("v1-comprar-pacote", async (req) => {
     await Parse.Object.saveAll(ursPacote, { useMasterKey: true });
     pacote.set('status', 'em negociacao');
     pacote.set('comprador', cliente);
+    pacote.set('taxaContratoPaySales', taxa);
+    pacote.set('valorComissaoPaySales', valorComissaoPaySales);
     await pacote.save(null, { useMasterKey: true });
 
-    return formatUR(ursPacote[0].toJSON());
+    return formatarPacoteComprado(pacote);
 
 }, {
     requireUser: true,
@@ -292,3 +298,34 @@ Parse.Cloud.define("v1-comprar-pacote", async (req) => {
     }
 });
 
+function formatarPacoteComprado(pacote) { // Renomeei 'c' para 'pacote' para maior clareza
+    const ursData = pacote.get('urs') ? pacote.get('urs').map((urObject) => ({
+        id: urObject.id,
+        arranjo: urObject.get('arranjo'),
+        cnpjCredenciadora: urObject.get('cnpjCredenciadora'),
+        dataPrevistaLiquidacao: urObject.get('dataPrevistaLiquidacao'),
+        valorLivreTotal: urObject.get('valorLivreTotal')
+    })) : [];
+
+    const vendedor = pacote.get('vendedor');
+    const vendedorData = vendedor ? {
+        id: vendedor.id,
+        razaoSocial: vendedor.get('razaoSocial'),
+        cnpj: vendedor.get('cnpj')
+    } : null;
+
+    return {
+        id: pacote.id,
+        clienteId: vendedorData ? vendedorData.id : null,
+        clienteNome: vendedorData ? vendedorData.razaoSocial : null,
+        clienteCNPJ: vendedorData ? vendedorData.cnpj : null,
+        status: pacote.get('status'),
+        valorBruto: pacote.get('valorBruto'),
+        prazoMedioPonderado: pacote.get('prazoMedioPonderado'),
+        taxaMes: pacote.get('taxaMes'),
+        desconto: pacote.get('desconto'),
+        valorPagar: pacote.get('valorLiquido') + pacote.get('valorComissaoPaySales') + pacote.get('taxaContratoPaySales'),
+        valorLiquido: pacote.get('valorLiquido'),
+        urs: ursData
+    };
+}

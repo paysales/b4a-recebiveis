@@ -7,4 +7,5 @@ require('./features/sftp.js');
 require('./features/ur.js');
 require('./features/news.js');
 require('./features/pacote.js');
+require('./features/contrato.js');
 require('./features/opt.js');

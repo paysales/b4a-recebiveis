@@ -1,16 +1,52 @@
 {
-    "Optin": [
-        {
-            "codigoExterno": "HL-03",
-            "cnpjSolicitante": "57033206000135",
-            "cnpjFinanciador": "57033206000135",
-            "cnpjCredenciadora": "",
-            "documentoUsuarioFinalRecebedor": "68428236000167",
-            "arranjoPagamento": "",
-            "dataAssinatura": "2025-04-04",
-            "dataEfetivacao": "2025-04-04",
-            "dataExpiracao": "2026-09-24",
-            "documentoTitular": ""
-        }
-    ]
+    "data": {
+        "codigoExternoContrato": "CTR-2/25",
+        "identificadorContrato": "CTR-2/25",
+        "documentoContratanteDivida": "20723498000128",
+        "indicadorRenegociacao": 0,
+        "cnpjParticipante": "57033206000135",
+        "cnpjDetentor": "57033206000135",
+        "codigoTipoEfeitoContrato": 1,
+        "valorSaldoDevedorOuLimite": 20000,
+        "valorMinimoMantido": 20000,
+        "dataAssinatura": "2025-04-14",
+        "dataVencimento": "2025-04-14",
+        "codigoModalidadeOperacao": 1,
+        "codigoRegraDivisao": 1,
+        "domicilio": {
+            "codigoAgencia": "12345",
+            "numeroConta": "45454545",
+            "codigoISPB": "31880826",
+            "documentoTitularConta": "97530827000149",
+            "tipoConta": "CC"
+        },
+        "recebiveisAbrangidos": [
+            {
+                "cnpjsCredenciadora": [
+                    "14021754000132"
+                ],
+                "documentosUsuarioFinalRecebedor": [
+                    "20723498000128"
+                ],
+                "codigosArranjoPagamento": [
+                    "ACC"
+                ],
+                "dataLiquidacaoInicial": "2025-04-29",
+                "dataLiquidacaoFinal": "2025-04-29"
+            },
+            {
+                "cnpjsCredenciadora": [
+                    "14021754000132"
+                ],
+                "documentosUsuarioFinalRecebedor": [
+                    "20723498000128"
+                ],
+                "codigosArranjoPagamento": [
+                    "MCC"
+                ],
+                "dataLiquidacaoInicial": "2025-04-29",
+                "dataLiquidacaoFinal": "2025-04-29"
+            }
+        ]
+    }
 }
