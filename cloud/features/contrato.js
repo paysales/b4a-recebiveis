@@ -209,3 +209,19 @@ Parse.Cloud.define('v1-consulta-contrato', async (req) => {
         codContrato: { required: true },
     }
 });
+
+Parse.Cloud.define('v1-get-contrato', async (req) => {
+    const Contrato = Parse.Object.extend('Contrato');
+    const query = new Parse.Query(Contrato);
+    query.include('urs');
+    query.equalTo('identificadorContrato', req.params.codContrato);
+    const contrato = await query.first({ useMasterKey: true });
+    if (!contrato) throw 'CONTRATO_INVALIDO';
+    return contrato;
+}, {
+    requireUser: true,
+    fields: {
+        codContrato: { required: true },
+    }
+});
+

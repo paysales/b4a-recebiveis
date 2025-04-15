@@ -16,24 +16,38 @@ Parse.Cloud.define('v1-create-pacote', async (req) => {
     const cliente = await queryCliente.first({ useMasterKey: true });
     if (!cliente) throw 'CLIENTE_INVALIDO';
 
-    //buscar taxa de contrato
+    const valorBruto = req.params.valorBruto;
+    //taxa de contrato
     const queryTaxaContrato = new Parse.Query(TaxaContrato);
-    queryTaxaContrato.greaterThanOrEqualTo('valor', req.params.valorBruto);
-    queryTaxaContrato.descending('valor');
-    const taxaContrato = await queryTaxaContrato.first({ useMasterKey: true });
-    if (!taxaContrato) throw 'TAXA_CONTRATO_INVALIDA';
-    const taxa = taxaContrato.get('taxa');
+    // Busca todas as faixas onde o valor inicial é menor ou igual ao valor do contrato
+    queryTaxaContrato.lessThanOrEqualTo("valorInicial", valorBruto);
+    // Ordena as faixas em ordem decrescente pelo valor inicial
+    queryTaxaContrato.descending("valorInicial");
+    // Limita o resultado a 1 para pegar a faixa com o maior valor inicial
+    queryTaxaContrato.limit(1);
+    let taxa = 0;
+    try {
+        const faixaEncontrada = await queryTaxaContrato.first({ useMasterKey: true });
+
+        if (faixaEncontrada) {
+            taxa = faixaEncontrada.get("taxa");
+        } else {
+            throw 'TAXA_CONTRATO_INVALIDA';
+        }
+    } catch (error) {
+        throw error;
+    }
 
     const pacote = new Pacote();
     pacote.set('vendedor', cliente);
-    pacote.set('valorBruto', req.params.valorBruto);
+    pacote.set('valorBruto', valorBruto);
     pacote.set('prazoMedioPonderado', req.params.prazoMedioPonderado);
     pacote.set('taxaMes', req.params.taxaMes);
     pacote.set('desconto', req.params.desconto);
     pacote.set('valorLiquido', req.params.valorLiquido);
     pacote.set('taxaContratoPaySales', taxa);
+    pacote.set("estrelas", req.params.estrelas);
     await pacote.save(null, { useMasterKey: true });
-
 
     // 4. Buscar urs e atualizar o campo pacote
     // const Ur = Parse.Object.extend("Ur");
@@ -98,6 +112,9 @@ Parse.Cloud.define('v1-create-pacote', async (req) => {
         valorLiquido: {
             required: true
         },
+        estrelas: {
+            required: true
+        },
         ursIds: {
             required: true
         }
@@ -138,14 +155,41 @@ Parse.Cloud.define("v1-get-buyer-pacotes", async (req) => {
 
     const query = new Parse.Query(Pacote);
     query.include('vendedor');
-    query.include('urs');
+    // query.include('urs');
     query.equalTo('status', 'disponivel');
     const pacotes = await query.find({ useMasterKey: true });
-    return pacotes.map(formatarPacote);
+    return pacotes.map(formatarPacoteDisplay);
 
 }, {
     requireUser: true
 });
+
+
+function formatarPacoteDisplay(pacote) { // Renomeei 'c' para 'pacote' para maior clareza
+    const ursData = [];
+
+    const vendedor = pacote.get('vendedor');
+    const vendedorData = vendedor ? {
+        id: vendedor.id,
+        razaoSocial: vendedor.get('razaoSocial'),
+        cnpj: vendedor.get('cnpj')
+    } : null;
+
+    return {
+        id: pacote.id,
+        clienteId: vendedorData ? vendedorData.id : null,
+        clienteNome: vendedorData ? vendedorData.razaoSocial : null,
+        clienteCNPJ: vendedorData ? vendedorData.cnpj : null,
+        status: pacote.get('status'),
+        valorBruto: pacote.get('valorBruto'),
+        prazoMedioPonderado: pacote.get('prazoMedioPonderado'),
+        taxaMes: pacote.get('taxaMes'),
+        desconto: pacote.get('desconto'),
+        valorLiquido: pacote.get('valorLiquido'),
+        estrelas: pacote.get('estrelas'),
+        urs: ursData
+    };
+}
 
 
 function formatarPacote(pacote) { // Renomeei 'c' para 'pacote' para maior clareza
@@ -175,6 +219,7 @@ function formatarPacote(pacote) { // Renomeei 'c' para 'pacote' para maior clare
         taxaMes: pacote.get('taxaMes'),
         desconto: pacote.get('desconto'),
         valorLiquido: pacote.get('valorLiquido'),
+        estrelas: pacote.get('estrelas'),
         urs: ursData
     };
 }
@@ -224,6 +269,23 @@ Parse.Cloud.define("v1-delete-pacote", async (req) => {
         }
     }
 });
+
+Parse.Cloud.define("v1-get-pacote", async (req) => {
+    const query = new Parse.Query(Pacote);
+    query.include('vendedor');
+    query.include('urs');
+    const pacote = await query.get(req.params.pacoteId, { useMasterKey: true });
+    if (!pacote) throw 'PACOTE_INVALIDO';
+    return formatarPacoteComprado(pacote);
+}, {
+    requireUser: true,
+    fields: {
+        pacoteId: {
+            required: true
+        }
+    }
+});
+
 
 Parse.Cloud.define("v1-comprar-pacote", async (req) => {
     const user = req.user;
@@ -326,6 +388,7 @@ function formatarPacoteComprado(pacote) { // Renomeei 'c' para 'pacote' para mai
         desconto: pacote.get('desconto'),
         valorPagar: pacote.get('valorLiquido') + pacote.get('valorComissaoPaySales') + pacote.get('taxaContratoPaySales'),
         valorLiquido: pacote.get('valorLiquido'),
+        estrelas: pacote.get('estrelas'),
         urs: ursData
     };
 }
