@@ -107,7 +107,7 @@ Parse.Cloud.define('v1-create-pacote', async (req) => {
 
 Parse.Cloud.define("v1-get-vendor-pacotes", async (req) => {
     const user = req.user;
-    if (user.get('type') !== 'Vendor') throw 'TIPO_USUARIO_VENDEDOR';
+    if (user.get('tipo') !== 'vendedor') throw 'TIPO_USUARIO_VENDEDOR';
 
     const Cliente = Parse.Object.extend("Cliente");
     const queryCliente = new Parse.Query(Cliente);
@@ -134,7 +134,7 @@ Parse.Cloud.define("v1-get-vendor-pacotes", async (req) => {
 
 Parse.Cloud.define("v1-get-buyer-pacotes", async (req) => {
     const user = req.user;
-    if (user.get('type') !== 'Buyer') throw 'TIPO_USUARIO_COMPRADOR';
+    if (user.get('tipo') !== 'comprador') throw 'TIPO_USUARIO_COMPRADOR';
 
     const query = new Parse.Query(Pacote);
     query.include('vendedor');
@@ -227,7 +227,7 @@ Parse.Cloud.define("v1-delete-pacote", async (req) => {
 
 Parse.Cloud.define("v1-comprar-pacote", async (req) => {
     const user = req.user;
-    if (user.get('type') !== 'Buyer') throw 'TIPO_USUARIO_COMPRADOR';
+    if (user.get('tipo') !== 'comprador') throw 'TIPO_USUARIO_COMPRADOR';
 
     const query = new Parse.Query(Pacote);
     query.include('urs');

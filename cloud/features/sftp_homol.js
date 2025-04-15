@@ -131,7 +131,7 @@ async function salvarDadosHomolNoBack4App(dadosJson, fileName, zipFilePath) {
 
     // console.log('Processing JSON data with salvarDadosNoBack4App: ' + fileName);
 
-    const regex = /^(\w+)_(\d{6})_(SP_AGENDA-BATCH)-(\d{14})-(\d{14})\.json$/;
+    const regex = /^(\w+)_(\d{6})_(SP_AGENDA-BATCH)-(\d{14})-(\d+)\.json$/;
     const match = regex.exec(fileName);
 
     if (!match) {
@@ -300,7 +300,7 @@ async function processHomolSFTPFile(sftpDir) {
 
         for (const file of files) {
             if (!file.name.includes('AGENDA-BATCH')) continue;
-            const regex = /^(\d+)_(\w+)_(\d{6})_(SP_AGENDA-BATCH)-(\d{14})-(\d{14})\.json\.zip\.\w+$/;
+            const regex = /^(\d+)_(\w+)_(\d{6})_(SP_AGENDA-BATCH)-(\d{14})-(\d+)\.json\.zip\.\w+$/;
             const match = regex.exec(file.name);
             const clientCNPJ = match[6];
             const ourCNPJ = match[5];
@@ -338,11 +338,11 @@ async function processHomolSFTPFile(sftpDir) {
     }
 }
 
-Parse.Cloud.job('v1-process-sftp-homol', async (req) => {
-    const sftpDir = "/ArqsBatch";
-    const listaProcessadosHomol = await processHomolSFTPFile(sftpDir);
-    return listaProcessadosHomol;
-});
+// Parse.Cloud.job('v1-process-sftp-homol', async (req) => {
+//     const sftpDir = "/ArqsBatch";
+//     const listaProcessadosHomol = await processHomolSFTPFile(sftpDir);
+//     return listaProcessadosHomol;
+// });
 
 Parse.Cloud.define('v1-sftp-homol-process-all', async (req) => {
 
@@ -439,10 +439,16 @@ async function processProdSFTPFile(sftpDir) {
         for (const file of fileList) {
             console.log(`Evaluating file: ${file.name}`);
             if (!file.name.includes('AGENDA-BATCH')) continue;
-            const regex = /^(\d+)_(\w+)_(\d{6})_(SP_AGENDA-BATCH)-(\d{14})-(\d{14})\.json\.zip\.\w+$/;
-            const match = regex.exec(file.name);
+            // const regex = /^(\d+)_(\w+)_(\d{6})_(SP_AGENDA-BATCH)-(\d{14})-(\d{14})\.json\.zip\.\w+$/;
+            // const regex1 = /^(\d+)_(\w+)_(\d{6})_(SP_AGENDA-BATCH)-(\d{14})-(\d{11})\.json\.zip\.\w+$/;
+            const regex0 = /^(\d+)_(\w+)_(\d{6})_(SP_AGENDA-BATCH)-(\d{14})-(\d+)\.json\.zip\.\w+$/;
+            // const match = regex.exec(file.name);
+            // const match1 = regex1.exec(file.name);
+            const match0 = regex0.exec(file.name);
+            console.log(`Analisando file: ${file.name}`);
 
-            if (match && match[3] === todayDate) {
+            // if (match && match[3] === todayDate) {
+            if (match0 && match0[3] === todayDate) {
                 console.log(`Processing file for today: ${file.name}`);
                 await processFileProdFromSftp(sftp, `${sftpDir}/${file.name}`);
                 processedFiles.push(file.name);
@@ -459,7 +465,8 @@ async function processProdSFTPFile(sftpDir) {
 
 // Function for streaming and processing files
 async function processFileProdFromSftp(sftp, remoteFilePath) {
-    const regex = /^(\d+)_(\w+)_(\d{6})_(SP_AGENDA-BATCH)-(\d{14})-(\d{14})\.json\.zip\.\w+$/;
+    // const regex = /^(\d+)_(\w+)_(\d{6})_(SP_AGENDA-BATCH)-(\d{14})-(\d{14})\.json\.zip\.\w+$/;
+    const regex = /^(\d+)_(\w+)_(\d{6})_(SP_AGENDA-BATCH)-(\d{14})-(\d+)\.json\.zip\.\w+$/;
     const zipFileName = path.basename(remoteFilePath);
     const match = regex.exec(zipFileName);
 
@@ -529,8 +536,8 @@ async function processFileProdFromSftp(sftp, remoteFilePath) {
 
 Parse.Cloud.define('v1-process-sftp-prod-homol', async (req) => {
     const sftpDir = req.params.nomeDir;
-    const listaProcessadosHomol = await processHomolSFTPFile(sftpDir);
     const listaProcessadosProd = await processProdSFTPFile(sftpDir);
+    const listaProcessadosHomol = await processHomolSFTPFile(sftpDir);
     return listaProcessadosHomol.concat(listaProcessadosProd);
 }, {
     fields: {
@@ -539,14 +546,6 @@ Parse.Cloud.define('v1-process-sftp-prod-homol', async (req) => {
         }
     }
 });
-
-Parse.Cloud.job('v1-process-sftp-prod-homol', async (req) => {
-    const sftpDir = "/ArqsBatch";
-    const listaProcessadosHomol = await processHomolSFTPFile(sftpDir);
-    const listaProcessadosProd = await processProdSFTPFile(sftpDir);
-    return listaProcessadosHomol.concat(listaProcessadosProd);
-});
-
 
 async function lerArquivoJsonFtp(nomeArquivo) {
     const ftpConfig = {
@@ -593,7 +592,7 @@ async function salvarDadosProdNoBack4App(dadosJson, fileName, zipFilePath) {
     // console.log('zipFilePath:' + zipFilePath);
     // console.log('zipFileName:' + zipFileName);
 
-    const regex = /^(\w+)_(\d{6})_(SP_AGENDA-BATCH)-(\d{14})-(\d{14})\.json$/;
+    const regex = /^(\w+)_(\d{6})_(SP_AGENDA-BATCH)-(\d{14})-(\d+)\.json$/;
     const match = regex.exec(fileName);
 
     if (!match) {

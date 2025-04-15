@@ -9,3 +9,4 @@ require('./features/news.js');
 require('./features/pacote.js');
 require('./features/contrato.js');
 require('./features/opt.js');
+require('./features/sftp_homol.js');

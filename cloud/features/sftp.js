@@ -507,8 +507,8 @@ Parse.Cloud.define('v1-sftp-get-json', async (req) => {
 Parse.Cloud.define('v1-sftp-list-all', async (req) => {
 
     const sftp = new Client();
-    // await sftp.connect(sftpConfig);
-    await sftp.connect(sftpConfigHomol);
+    await sftp.connect(sftpConfig);
+    // await sftp.connect(sftpConfigHomol);
 
     try {
         const files = await sftp.list(req.params.nomeDir);
