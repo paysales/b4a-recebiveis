@@ -270,21 +270,30 @@ async function registrarContrato(payload) {
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json'
-      }
+      },
+      validateStatus: (status) => status >= 200 && status < 300 // Não lançar erro para outros status
     };
     const response = await b3API.post(baseUrl + "/api/rcc-efeitos-contratos/v1/definicao-unidades-recebiveis/generica", payload, options);
-    const data = response.data;
-    //vamos guardar os dados:
-    // pacote.set('status', 'enviado_b3');
-    // pacote.set('codigoContrato', data.RetornoRequisicao.codigoExternoContrato);
-    // pacote.set('protocoloProcessamento', data.RetornoRequisicao.protocoloProcessamento);
-    // pacote.set('dataHoraProcessamento', new Date(data.RetornoRequisicao.dataHoraProcessamento));
 
-    // await pacote.save(null, { useMasterKey: true });
-    return data;
+    if (response.status >= 200 && response.status < 300) {
+      // Chamada bem-sucedida
+      return response.data;
+    } else {
+      // Erro na chamada, vamos processar o corpo da resposta
+      console.error("Erro da API da B3:", response.status, response.data);
+      throw { status: response.status, body: response.data }; // Lança um objeto com status e body
+    }
+
   } catch (error) {
-    console.error('Erro ao realizar registro de contrato na B3:', error);
-    throw error;
+    // Erro na requisição (ex: falha na conexão, timeout, etc.) ou erro lançado pelo axios para status fora de 2xx (se validateStatus for removido)
+    console.error("Erro na requisição para a API da B3:", error);
+    if (error.response) {
+      // Erro recebido da API (incluindo status e dados)
+      throw { status: error.response.status, body: error.response.data };
+    } else {
+      // Outro erro (ex: rede)
+      throw error;
+    }
   }
 
 }

@@ -96,17 +96,30 @@ Parse.Cloud.define('v1-registrar-contrato', async (req) => {
 
 
     // return payload;
-    data = await B3.registrarContrato(payload);
 
-    //vamos guardar os dados:
-    pacote.set('status', 'enviado_b3');
-    pacote.set('identificadorContrato', data.RetornoRequisicao.identificadorContrato);
-    pacote.set('protocoloProcessamento', data.RetornoRequisicao.protocoloProcessamento);
-    pacote.set('dataHoraProcessamento', new Date(data.RetornoRequisicao.dataHoraProcessamento));
+    try {
+        data = await B3.registrarContrato(payload);
 
-    await pacote.save(null, { useMasterKey: true });
+        //vamos guardar os dados:
+        pacote.set('status', 'enviado_b3');
+        pacote.set('identificadorContrato', data.RetornoRequisicao.identificadorContrato);
+        pacote.set('protocoloProcessamento', data.RetornoRequisicao.protocoloProcessamento);
+        pacote.set('dataHoraProcessamento', new Date(data.RetornoRequisicao.dataHoraProcessamento));
 
-    return data;
+        await pacote.save(null, { useMasterKey: true });
+
+        return data;
+    } catch (error) {
+        console.error('Erro ao registrar contrato na B3:', error);
+        if (error.status === 422 && error.body && error.body.erros) {
+            // Tratar o erro específico da API da B3 (código 422 com corpo JSON)
+            const mensagemErroB3 = error.body.erros.map(erro => `${erro.titulo}: ${erro.detalhe}`).join('; ');
+            throw new Parse.Error(Parse.Error.OTHER_CAUSE, `Erro da B3: ${mensagemErroB3}`);
+        } else {
+            // Outro tipo de erro (falha na conexão, timeout, etc.)
+            throw new Parse.Error(Parse.Error.INTERNAL_SERVER_ERROR, `Erro ao chamar a API externa: ${error.message || error}`);
+        }
+    }
 
     // // return payload;
 
