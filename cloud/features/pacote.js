@@ -298,14 +298,13 @@ Parse.Cloud.define("v1-comprar-pacote", async (req) => {
 
     if (pacote.get('status') !== 'disponivel') throw 'PACOTE_NAO_DISPONIVEL';
 
+    //comprador
     const queryCliente = new Parse.Query(Cliente);
     queryCliente.equalTo('admins', req.user);
-    const cliente = await queryCliente.first({ useMasterKey: true });
-    if (!cliente) throw 'CLIENTE_INVALIDO';
+    const comprador = await queryCliente.first({ useMasterKey: true });
+    if (!comprador) throw 'CLIENTE_INVALIDO';
     //comissão da PaySales
-    const taxaPaySales = cliente.get('taxaPaySales');
-
-
+    const taxaPaySales = comprador.get('taxaPaySales');
     //vamos pegar a taxa de contrato
     const valorBruto = pacote.get('valorBruto');    //taxa de contrato
     const queryTaxaContrato = new Parse.Query(TaxaContrato);
@@ -330,21 +329,21 @@ Parse.Cloud.define("v1-comprar-pacote", async (req) => {
     //comissão da PaySales
     const valorComissaoPaySales = valorBruto * taxaPaySales / 100;
 
-    const urs = pacote.get('urs');
-    if (!urs || urs.length === 0) throw 'SEM_URS';
-    //copiar as urs para tabela de Urs Pacote
-    const ursPacote = urs.map((ur) => {
-        const urPacote = new UrPacote();
-        urPacote.set('arranjo', ur.get('arranjo'));
-        urPacote.set('dataPrevistaLiquidacao', ur.get('dataPrevistaLiquidacao'));
-        urPacote.set('valor', ur.get('valorLivreTotal'));
-        urPacote.set('cnpjCredenciadora', ur.get('cnpjCredenciadora'));
-        urPacote.set('pacote', pacote);
-        return urPacote;
-    });
-    await Parse.Object.saveAll(ursPacote, { useMasterKey: true });
+    // const urs = pacote.get('urs');
+    // if (!urs || urs.length === 0) throw 'SEM_URS';
+    // //copiar as urs para tabela de Urs Pacote
+    // const ursPacote = urs.map((ur) => {
+    //     const urPacote = new UrPacote();
+    //     urPacote.set('arranjo', ur.get('arranjo'));
+    //     urPacote.set('dataPrevistaLiquidacao', ur.get('dataPrevistaLiquidacao'));
+    //     urPacote.set('valor', ur.get('valorLivreTotal'));
+    //     urPacote.set('cnpjCredenciadora', ur.get('cnpjCredenciadora'));
+    //     urPacote.set('pacote', pacote);
+    //     return urPacote;
+    // });
+    // await Parse.Object.saveAll(ursPacote, { useMasterKey: true });
     pacote.set('status', 'em negociacao');
-    pacote.set('comprador', cliente);
+    pacote.set('comprador', comprador);
     pacote.set('taxaContratoPaySales', taxa);
     pacote.set('valorComissaoPaySales', valorComissaoPaySales);
     await pacote.save(null, { useMasterKey: true });

@@ -94,11 +94,13 @@ Parse.Cloud.define('v1-registrar-contrato', async (req) => {
         }
     });
 
+
+    // return payload;
     data = await B3.registrarContrato(payload);
 
     //vamos guardar os dados:
     pacote.set('status', 'enviado_b3');
-    pacote.set('codigoContrato', data.RetornoRequisicao.codigoExternoContrato);
+    pacote.set('identificadorContrato', data.RetornoRequisicao.identificadorContrato);
     pacote.set('protocoloProcessamento', data.RetornoRequisicao.protocoloProcessamento);
     pacote.set('dataHoraProcessamento', new Date(data.RetornoRequisicao.dataHoraProcessamento));
 
@@ -144,19 +146,27 @@ Parse.Cloud.define('v1-consulta-contrato', async (req) => {
 
     const result = await B3.consultaContrato(payload);
 
+    //recuperar o pacote
+    const query = new Parse.Query(Pacote);
+    query.equalTo('identificadorContrato', result.data.identificadorContrato);
+    const pacote = await query.first({ useMasterKey: true });
+    if (!pacote) throw 'PACOTE_INVALIDO';
+
     // return result;
 
     //Criar contrato
     const contrato = new Contrato();
+    contrato.set('vendedor', pacote.get('vendedor'));
+    contrato.set('comprador', pacote.get('comprador'));
     contrato.set('identificadorContrato', result.data.identificadorContrato);
     contrato.set('codigoExternoContrato', result.data.codigoExternoContrato);
     contrato.set('descricaoSituacaoContrato', result.data.descricaoSituacaoContrato);
     contrato.set('descricaoRenegociacao', result.data.descricaoRenegociacao);
     contrato.set('dataAssinatura', result.data.dataAssinatura);
     contrato.set('dataVencimento', result.data.dataVencimento);
-    contrato.set('cnpjParticipante', result.data.cnpjParticipante);
-    contrato.set('cnpjDetentor', result.data.cnpjDetentor);
-    contrato.set('documentoContratanteDivida', result.data.documentoContratanteDivida);
+    contrato.set('cnpjParticipante', result.data.cnpjParticipante.replace(/\D/g, ''));
+    contrato.set('cnpjDetentor', result.data.cnpjDetentor.replace(/\D/g, ''));
+    contrato.set('documentoContratanteDivida', result.data.documentoContratanteDivida.replace(/\D/g, ''));
     contrato.set('descricaoTipoEfeitoContrato', result.data.descricaoTipoEfeitoContrato);
     contrato.set('descricaoRegraDivisao', result.data.descricaoRegraDivisao);
     contrato.set('descricaoIdentificacaoGestao', result.data.descricaoIdentificacaoGestao);
@@ -169,6 +179,20 @@ Parse.Cloud.define('v1-consulta-contrato', async (req) => {
     contrato.set('valorEfeitoComprometidoTotal', result.data.valorAgregado.valorEfeitoComprometidoTotal);
     contrato.set('valorEfeitoAComprometerTotal', result.data.valorAgregado.valorEfeitoAComprometerTotal);
     contrato.set('domicilios', result.data.domicilios);
+    await contrato.save(null, { useMasterKey: true });
+    //comprador
+    const queryCliente = new Parse.Query(Cliente);
+    queryCliente.equalTo('cnpj', result.data.documentoContratanteDivida);
+    const cliente = await queryCliente.first({ useMasterKey: true });
+    if (!cliente) throw 'CLIENTE_INVALIDO';
+    contrato.set('comprador', cliente);
+    await contrato.save(null, { useMasterKey: true });
+    //vendedor
+    const queryVendedor = new Parse.Query(Cliente);
+    queryVendedor.equalTo('cnpj', result.data.cnpjParticipante);
+    const vendedor = await queryVendedor.first({ useMasterKey: true });
+    if (!vendedor) throw 'VENDENDOR_INVALIDO';
+    contrato.set('vendedor', vendedor);
     await contrato.save(null, { useMasterKey: true });
 
     var ursContrato = [];

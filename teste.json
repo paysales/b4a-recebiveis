@@ -1,21 +1,21 @@
 {
     "data": {
-        "codigoExternoContrato": "CTR-2/25",
-        "identificadorContrato": "CTR-2/25",
-        "documentoContratanteDivida": "20723498000128",
+        "codigoExternoContrato": "CTR-0000007_25",
+        "identificadorContrato": "CTR-0000007_25",
+        "documentoContratanteDivida": "68428236000167",
         "indicadorRenegociacao": 0,
         "cnpjParticipante": "57033206000135",
         "cnpjDetentor": "57033206000135",
         "codigoTipoEfeitoContrato": 1,
-        "valorSaldoDevedorOuLimite": 20000,
-        "valorMinimoMantido": 20000,
-        "dataAssinatura": "2025-04-14",
-        "dataVencimento": "2025-04-14",
+        "valorSaldoDevedorOuLimite": 3000000,
+        "valorMinimoMantido": 3000000,
+        "dataAssinatura": "2025-04-16",
+        "dataVencimento": "2025-04-16",
         "codigoModalidadeOperacao": 1,
         "codigoRegraDivisao": 1,
         "domicilio": {
-            "codigoAgencia": "12345",
-            "numeroConta": "45454545",
+            "codigoAgencia": "123",
+            "numeroConta": "123456",
             "codigoISPB": "31880826",
             "documentoTitularConta": "97530827000149",
             "tipoConta": "CC"
@@ -23,29 +23,45 @@
         "recebiveisAbrangidos": [
             {
                 "cnpjsCredenciadora": [
-                    "14021754000132"
+                    "51382428000187"
                 ],
                 "documentosUsuarioFinalRecebedor": [
-                    "20723498000128"
+                    "68428236000167"
                 ],
                 "codigosArranjoPagamento": [
-                    "ACC"
+                    "ECC"
                 ],
-                "dataLiquidacaoInicial": "2025-04-29",
-                "dataLiquidacaoFinal": "2025-04-29"
+                "dataLiquidacaoInicial": "2025-05-01",
+                "dataLiquidacaoFinal": "2025-05-01",
+                "valorOnerar": 1000000
             },
             {
                 "cnpjsCredenciadora": [
-                    "14021754000132"
+                    "51382428000187"
                 ],
                 "documentosUsuarioFinalRecebedor": [
-                    "20723498000128"
+                    "68428236000167"
                 ],
                 "codigosArranjoPagamento": [
-                    "MCC"
+                    "VCC"
                 ],
-                "dataLiquidacaoInicial": "2025-04-29",
-                "dataLiquidacaoFinal": "2025-04-29"
+                "dataLiquidacaoInicial": "2025-05-01",
+                "dataLiquidacaoFinal": "2025-05-01",
+                "valorOnerar": 1000000
+            },
+            {
+                "cnpjsCredenciadora": [
+                    "51382428000187"
+                ],
+                "documentosUsuarioFinalRecebedor": [
+                    "68428236000167"
+                ],
+                "codigosArranjoPagamento": [
+                    "VCD"
+                ],
+                "dataLiquidacaoInicial": "2025-05-01",
+                "dataLiquidacaoFinal": "2025-05-01",
+                "valorOnerar": 1000000
             }
         ]
     }
