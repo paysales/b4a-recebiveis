@@ -200,12 +200,12 @@ async function salvarDadosHomolNoBack4App(dadosJson, fileName, zipFilePath) {
             valorLivreTotal += ur.valores.valorLivreTotal;
             count++;
             if (ur.valores.valorLivreTotal > 0) {
-                if (!arranjos.includes(ur.arranjo)) {
-                    arranjos.push(ur.arranjo);
-                }
-                if (!cnpjCredenciadoras.includes(ur.cnpjCredenciadora)) {
-                    cnpjCredenciadoras.push(ur.cnpjCredenciadora);
-                }
+                // if (!arranjos.includes(ur.arranjo)) {
+                arranjos.push(ur.arranjo);
+                // }
+                // if (!cnpjCredenciadoras.includes(ur.cnpjCredenciadora)) {
+                cnpjCredenciadoras.push(ur.cnpjCredenciadora);
+                // }
             }
             if (new Date(ur.dataPrevistaLiquidacao) > new Date(dtFim)) {
                 dtFim = ur.dataPrevistaLiquidacao;
@@ -215,6 +215,9 @@ async function salvarDadosHomolNoBack4App(dadosJson, fileName, zipFilePath) {
             throw error; // Rejeita a promise para que o erro seja tratado
         }
     }
+
+    arranjos = Array.from(new Set(arranjos));
+    cnpjCredenciadoras = Array.from(new Set(cnpjCredenciadoras));
 
     agenda.set('valorLivreTotal', parseFloat(valorLivreTotal.toFixed(2)));
     agenda.set('arranjos', arranjos);

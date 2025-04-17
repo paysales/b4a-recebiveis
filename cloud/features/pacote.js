@@ -69,11 +69,14 @@ Parse.Cloud.define('v1-create-pacote', async (req) => {
     if (urs.length !== req.params.ursIds.length) {
         throw "Um ou mais urs não encontrados.";
     }
-
+    //buscar as credenciadoras
+    let credenciadoras = [];
     const ursParaSalvar = urs.map((ur) => {
+        credenciadoras.push(ur.get('cnpjCredenciadora'));
         ur.set("pacote", pacote);
         return ur;
     });
+    credenciadoras = Array.from(new Set(credenciadoras));
 
     // 5. Salvar urs
     await Parse.Object.saveAll(ursParaSalvar, { useMasterKey: true });
@@ -88,6 +91,7 @@ Parse.Cloud.define('v1-create-pacote', async (req) => {
     })
 
     pacote.set("urs", ursPointers);
+    pacote.set('credenciadoras', credenciadoras);
     await pacote.save(null, { useMasterKey: true })
 
     return pacote;
@@ -172,7 +176,7 @@ Parse.Cloud.define("v1-get-buyer-pacotes", async (req) => {
 
     return pacotes.map((n) => formatarPacoteDisplay(n, taxaPaySales));
 
-}, {    
+}, {
     requireUser: true
 });
 
@@ -201,6 +205,7 @@ function formatarPacoteDisplay(pacote, taxaPaySales) { // Renomeei 'c' para 'pac
         estrelas: pacote.get('estrelas'),
         taxaContratoPaySales: pacote.get('taxaContratoPaySales'),
         valorComissaoPaySales: parseFloat((taxaPaySales * pacote.get('valorBruto')).toFixed(2)),
+        credenciadoras: pacote.get('credenciadoras'),
         urs: ursData
     };
 }
@@ -406,6 +411,7 @@ function formatarPacoteComprado(pacote) { // Renomeei 'c' para 'pacote' para mai
         valorPagar: pacote.get('valorLiquido') + pacote.get('valorComissaoPaySales') + pacote.get('taxaContratoPaySales'),
         valorLiquido: pacote.get('valorLiquido'),
         estrelas: pacote.get('estrelas'),
+        credenciadoras: pacote.get('credenciadoras'),
         urs: ursData
     };
 }

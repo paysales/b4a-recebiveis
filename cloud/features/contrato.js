@@ -125,6 +125,7 @@ async function registrarContrato(pacoteId, compradorId) {
         contrato.set('protocoloProcessamento', data.RetornoRequisicao.protocoloProcessamento);
         contrato.set('dataHoraProcessamento', new Date(data.RetornoRequisicao.dataHoraProcessamento));
         contrato.set('status', 'enviado_b3');
+        contrato.set('credenciadoras', pacote.get('credenciadoras'));
         contrato.set('pacote', pacote);
         await contrato.save(null, { useMasterKey: true });
 
@@ -258,7 +259,6 @@ Parse.Cloud.define('v1-get-contrato', async (req) => {
 
 Parse.Cloud.define('v1-get-buyer-contratos', async (req) => {
 
-
     const user = req.user;
     if (user.get('tipo') !== 'comprador') throw 'TIPO_USUARIO_COMPRADOR';
 
@@ -271,58 +271,85 @@ Parse.Cloud.define('v1-get-buyer-contratos', async (req) => {
 
     const query = new Parse.Query(Contrato);
     query.include('pacote');
+    query.include('vendedor');
     query.include('urs');
     query.equalTo('comprador', comprador);
     const contratos = await query.find({ useMasterKey: true });
 
-    //pegar o vendedor
-    const pacote = contratos[0].get('pacote');
+    // return contratos;
 
-    const vendedor = pacote.get('vendedor');
-    const vendedorData = vendedor ? {
-        id: vendedor.id,
-        razaoSocial: vendedor.get('razaoSocial'),
-        cnpj: vendedor.get('cnpj')
-    } : null;
-
-    return vendedorData;
-
-    return contratos.map((c) => formatarContrato(c));
+    return contratos.map((c) => formatarContratoDisplay(c));
 }, {
     requireUser: true
 });
 
+function formatarContratoDisplay(contrato) {
+    const pacote = contrato.get('pacote');
+    const vendedor = contrato.get('vendedor');
+
+    return {
+        id: contrato.id,
+        identificadorContrato: contrato.get('identificadorContrato'),
+        descricaoSituacaoContrato: contrato.get('descricaoSituacaoContrato'),
+        status: contrato.get('status'),
+        clienteId: vendedor.id,
+        clienteNome: vendedor.get('razaoSocial'),
+        clienteCNPJ: vendedor.get('cnpj'),
+        dataAssinatura: contrato.get('dataAssinatura'),
+        dataVencimento: contrato.get('dataVencimento'),
+        valorAPagar: pacote.get('valorLiquido') + pacote.get('valorComissaoPaySales') + pacote.get('taxaContratoPaySales'),
+        valorBruto: pacote.get('valorBruto'),
+        valorLiquido: pacote.get('valorLiquido'),
+        desconto: pacote.get('desconto'),
+        taxaMes: pacote.get('taxaMes'),
+        prazoMedioPonderado: pacote.get('prazoMedioPonderado'),
+        credenciadoras: contrato.get('credenciadoras'),
+        estrelas: pacote.get('estrelas'),
+
+    };
+}
 function formatarContrato(contrato) {
     const pacote = contrato.get('pacote');
-
-    const vendedor = pacote.get('vendedor');
-    const vendedorData = vendedor ? {
-        id: vendedor.id,
-        razaoSocial: vendedor.get('razaoSocial'),
-        cnpj: vendedor.get('cnpj')
-    } : null;
+    const vendedor = contrato.get('vendedor');
+    // const vendedorData = vendedor ? {
+    //     id: vendedor.id,
+    //     razaoSocial: vendedor.get('razaoSocial'),
+    //     cnpj: vendedor.get('cnpj')
+    // } : null;
 
     const pacoteData = {
         id: pacote.id,
-        clienteId: vendedorData ? vendedorData.id : null,
-        clienteNome: vendedorData ? vendedorData.razaoSocial : null,
-        clienteCNPJ: vendedorData ? vendedorData.cnpj : null,
+        clienteId: vendedor.id,
+        clienteNome: vendedor.get('razaoSocial'),
+        clienteCNPJ: vendedor.get('cnpj'),
         status: pacote.get('status'),
         valorBruto: pacote.get('valorBruto'),
         prazoMedioPonderado: pacote.get('prazoMedioPonderado'),
         taxaMes: pacote.get('taxaMes'),
         desconto: pacote.get('desconto'),
-        valorPagar: pacote.get('valorLiquido') + pacote.get('valorComissaoPaySales') + pacote.get('taxaContratoPaySales'),
+        taxaContratoPaySales: pacote.get('taxaContratoPaySales'),
+        valorComissaoPaySales: pacote.get('valorComissaoPaySales'),
         valorLiquido: pacote.get('valorLiquido'),
-        estrelas: pacote.get('estrelas')
+        estrelas: pacote.get('estrelas'),
+        urs: pacote.get('urs').map((ur) => ({
+            id: ur.id,
+            arranjo: ur.get('arranjo'),
+            cnpjCredenciadora: ur.get('cnpjCredenciadora'),
+            dataPrevistaLiquidacao: ur.get('dataPrevistaLiquidacao'),
+            valorLivreTotal: ur.get('valorLivreTotal')
+        }))
     };
 
     return {
         id: contrato.id,
         identificadorContrato: contrato.get('identificadorContrato'),
         descricaoSituacaoContrato: contrato.get('descricaoSituacaoContrato'),
+        clienteId: vendedor.id,
+        clienteNome: vendedor.get('razaoSocial'),
+        clienteCNPJ: vendedor.get('cnpj'),
         dataAssinatura: contrato.get('dataAssinatura'),
         dataVencimento: contrato.get('dataVencimento'),
+        valorAPagar: pacote.get('valorLiquido') + pacote.get('valorComissaoPaySales') + pacote.get('taxaContratoPaySales'),
         valorSaldoDevedorOuLimite: contrato.get('valorSaldoDevedorOuLimite'),
         valorMinimoMantido: contrato.get('valorMinimoMantido'),
         quantidadeUnidadesRecebiveis: contrato.get('quantidadeUnidadesRecebiveis'),
@@ -335,4 +362,4 @@ function formatarContrato(contrato) {
 
 module.exports = {
     registrarContrato
-  };
+};
