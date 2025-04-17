@@ -7,10 +7,28 @@ const UrContrato = Parse.Object.extend('URContrato');
 
 Parse.Cloud.define('v1-registrar-contrato', async (req) => {
 
+    //comprador
+    const queryCliente = new Parse.Query(Cliente);
+    queryCliente.include('banco');
+    queryCliente.equalTo('admins', req.user);
+    const comprador = await queryCliente.first({ useMasterKey: true });
+    if (!comprador) throw 'COMPRADOR_INVALIDO';
+
+    const result = await registrarContrato(req.params.pacoteId, comprador.id);
+    return result;
+}, {
+    requireUser: true,
+    fields: {
+        pacoteId: { required: true },
+    }
+});
+
+async function registrarContrato(pacoteId, compradorId) {
+
     const query = new Parse.Query(Pacote);
     query.include('urs');
     query.include('vendedor');
-    const pacote = await query.get(req.params.pacoteId, { useMasterKey: true });
+    const pacote = await query.get(pacoteId, { useMasterKey: true });
     if (!pacote) throw 'PACOTE_INVALIDO';
     console.log('exitem pacote para virar contrato')
     if (pacote.get('status') !== 'em negociacao') throw 'PACOTE_INVALIDO';
@@ -24,8 +42,7 @@ Parse.Cloud.define('v1-registrar-contrato', async (req) => {
     //comprador
     const queryCliente = new Parse.Query(Cliente);
     queryCliente.include('banco');
-    queryCliente.equalTo('admins', req.user);
-    const comprador = await queryCliente.first({ useMasterKey: true });
+    const comprador = await queryCliente.get(compradorId, { useMasterKey: true });
     if (!comprador) throw 'COMPRADOR_INVALIDO';
 
     const banco = comprador.get('banco');
@@ -49,12 +66,6 @@ Parse.Cloud.define('v1-registrar-contrato', async (req) => {
     queryConfig.equalTo('nome', 'cnpjFinanciador');
     config = await queryConfig.first({ useMasterKey: true });
     const cnpjFinanciador = config.get('valor');
-
-    queryConfig = new Parse.Query(Config);
-    queryConfig.equalTo('nome', 'cnpjSolicitante');
-    config = await queryConfig.first({ useMasterKey: true });
-    const cnpjSolicitante = config.get('valor');
-
 
     // verificar se conta vai dígito e CNPJ formatado ou não
     const payload = JSON.stringify({
@@ -94,9 +105,6 @@ Parse.Cloud.define('v1-registrar-contrato', async (req) => {
         }
     });
 
-
-    // return payload;
-
     try {
         data = await B3.registrarContrato(payload);
 
@@ -108,6 +116,21 @@ Parse.Cloud.define('v1-registrar-contrato', async (req) => {
 
         await pacote.save(null, { useMasterKey: true });
 
+        //Vamos criar o contrato
+        const contrato = new Contrato();
+        contrato.set('vendedor', vendedor);
+        contrato.set('comprador', comprador);
+        contrato.set('codigoExternoContrato', data.RetornoRequisicao.codigoExternoContrato);
+        contrato.set('identificadorContrato', data.RetornoRequisicao.identificadorContrato);
+        contrato.set('protocoloProcessamento', data.RetornoRequisicao.protocoloProcessamento);
+        contrato.set('dataHoraProcessamento', new Date(data.RetornoRequisicao.dataHoraProcessamento));
+        contrato.set('status', 'enviado_b3');
+        contrato.set('pacote', pacote);
+        await contrato.save(null, { useMasterKey: true });
+
+        //Vamos atualizar o pacote
+        pacote.set('contrato', contrato);
+        await pacote.save(null, { useMasterKey: true });
         return data;
     } catch (error) {
         console.error('Erro ao registrar contrato na B3:', error);
@@ -120,36 +143,7 @@ Parse.Cloud.define('v1-registrar-contrato', async (req) => {
             throw new Parse.Error(Parse.Error.INTERNAL_SERVER_ERROR, `Erro ao chamar a API externa: ${error.message || error}`);
         }
     }
-
-    // // return payload;
-
-    // try {
-    //   const options = {
-    //     headers: {
-    //       Authorization: `Bearer ${token}`,
-    //       'Content-Type': 'application/json'
-    //     }
-    //   };
-    //   const response = await b3API.post(baseUrl + "/api/rcc-efeitos-contratos/v1/definicao-unidades-recebiveis/generica", payload, options);
-    //   const data = response.data;
-    //   //vamos guardar os dados:
-    //   pacote.set('status', 'enviado_b3');
-    //   pacote.set('codigoContrato', data.RetornoRequisicao.codigoExternoContrato);
-    //   pacote.set('protocoloProcessamento', data.RetornoRequisicao.protocoloProcessamento);
-    //   pacote.set('dataHoraProcessamento', new Date(data.RetornoRequisicao.dataHoraProcessamento));
-
-    //   await pacote.save(null, { useMasterKey: true });
-    //   return data;
-    // } catch (error) {
-    //   console.error('Erro ao realizar registro de contrato na B3:', error);
-    //   throw error;
-    // }
-}, {
-    requireUser: true,
-    fields: {
-        pacoteId: { required: true },
-    }
-});
+}
 
 Parse.Cloud.define('v1-consulta-contrato', async (req) => {
     const payload = {
@@ -262,3 +256,83 @@ Parse.Cloud.define('v1-get-contrato', async (req) => {
     }
 });
 
+Parse.Cloud.define('v1-get-buyer-contratos', async (req) => {
+
+
+    const user = req.user;
+    if (user.get('tipo') !== 'comprador') throw 'TIPO_USUARIO_COMPRADOR';
+
+    //comprador
+    const queryCliente = new Parse.Query(Cliente);
+    queryCliente.include('banco');
+    queryCliente.equalTo('admins', req.user);
+    const comprador = await queryCliente.first({ useMasterKey: true });
+    if (!comprador) throw 'COMPRADOR_INVALIDO';
+
+    const query = new Parse.Query(Contrato);
+    query.include('pacote');
+    query.include('urs');
+    query.equalTo('comprador', comprador);
+    const contratos = await query.find({ useMasterKey: true });
+
+    //pegar o vendedor
+    const pacote = contratos[0].get('pacote');
+
+    const vendedor = pacote.get('vendedor');
+    const vendedorData = vendedor ? {
+        id: vendedor.id,
+        razaoSocial: vendedor.get('razaoSocial'),
+        cnpj: vendedor.get('cnpj')
+    } : null;
+
+    return vendedorData;
+
+    return contratos.map((c) => formatarContrato(c));
+}, {
+    requireUser: true
+});
+
+function formatarContrato(contrato) {
+    const pacote = contrato.get('pacote');
+
+    const vendedor = pacote.get('vendedor');
+    const vendedorData = vendedor ? {
+        id: vendedor.id,
+        razaoSocial: vendedor.get('razaoSocial'),
+        cnpj: vendedor.get('cnpj')
+    } : null;
+
+    const pacoteData = {
+        id: pacote.id,
+        clienteId: vendedorData ? vendedorData.id : null,
+        clienteNome: vendedorData ? vendedorData.razaoSocial : null,
+        clienteCNPJ: vendedorData ? vendedorData.cnpj : null,
+        status: pacote.get('status'),
+        valorBruto: pacote.get('valorBruto'),
+        prazoMedioPonderado: pacote.get('prazoMedioPonderado'),
+        taxaMes: pacote.get('taxaMes'),
+        desconto: pacote.get('desconto'),
+        valorPagar: pacote.get('valorLiquido') + pacote.get('valorComissaoPaySales') + pacote.get('taxaContratoPaySales'),
+        valorLiquido: pacote.get('valorLiquido'),
+        estrelas: pacote.get('estrelas')
+    };
+
+    return {
+        id: contrato.id,
+        identificadorContrato: contrato.get('identificadorContrato'),
+        descricaoSituacaoContrato: contrato.get('descricaoSituacaoContrato'),
+        dataAssinatura: contrato.get('dataAssinatura'),
+        dataVencimento: contrato.get('dataVencimento'),
+        valorSaldoDevedorOuLimite: contrato.get('valorSaldoDevedorOuLimite'),
+        valorMinimoMantido: contrato.get('valorMinimoMantido'),
+        quantidadeUnidadesRecebiveis: contrato.get('quantidadeUnidadesRecebiveis'),
+        valorEfeitoSolicitadoTotal: contrato.get('valorEfeitoSolicitadoTotal'),
+        valorEfeitoComprometidoTotal: contrato.get('valorEfeitoComprometidoTotal'),
+        valorEfeitoAComprometerTotal: contrato.get('valorEfeitoAComprometerTotal'),
+        pacote: pacoteData
+    };
+}
+
+module.exports = {
+    registrarContrato
+  };

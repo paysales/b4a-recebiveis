@@ -216,7 +216,7 @@ async function salvarDadosHomolNoBack4App(dadosJson, fileName, zipFilePath) {
         }
     }
 
-    agenda.set('valorLivreTotal', valorLivreTotal);
+    agenda.set('valorLivreTotal', parseFloat(valorLivreTotal.toFixed(2)));
     agenda.set('arranjos', arranjos);
     agenda.set('cnpjCredenciadoras', cnpjCredenciadoras);
     agenda.set('dtIni', dtIni.toISOString().split('T')[0]);
@@ -547,6 +547,19 @@ Parse.Cloud.define('v1-process-sftp-prod-homol', async (req) => {
     }
 });
 
+Parse.Cloud.job('v1-process-sftp-all', async (req) => {
+    const sftpDir = "/ArqsBatch";
+    const listaProcessadosProd = await processProdSFTPFile(sftpDir);
+    const listaProcessadosHomol = await processHomolSFTPFile(sftpDir);
+    return listaProcessadosHomol.concat(listaProcessadosProd);
+});
+
+Parse.Cloud.job('v1-process-sftp-prod', async (req) => {
+    const sftpDir = "/ArqsBatch";
+    const listaProcessados = await processProdSFTPFile(sftpDir);
+    return listaProcessados;
+});
+
 async function lerArquivoJsonFtp(nomeArquivo) {
     const ftpConfig = {
         host: 'static-sfs-us-east-1.docevent.io',
@@ -716,7 +729,7 @@ async function salvarDadosProdNoBack4App(dadosJson, fileName, zipFilePath) {
     // console.log('cnpjCredenciadoras:' + cnpjCredenciadoras);
     // console.log('dtFim:' + dtFim);
 
-    agenda.set('valorLivreTotal', valorLivreTotal);
+    agenda.set('valorLivreTotal', parseFloat(valorLivreTotal.toFixed(2)));
     agenda.set('arranjos', arranjos);
     agenda.set('cnpjCredenciadoras', cnpjCredenciadoras);
     agenda.set('dtIni', dtIni.toISOString().split('T')[0]);
