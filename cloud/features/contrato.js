@@ -360,14 +360,6 @@ function formatarContrato(contrato) {
     };
 }
 
-Parse.Cloud.define('webhook', async (req) => {
-    if (req.user == null) throw 'USER_NOT_FOUND';
-    if (req.user.id != 'kdETA7qa25') throw 'USER_NOT_AUTHORIZED';
-    return 'Olá desde a back4app da AppSales.....'
-}, {
-    requireUser: true
-});
-
 module.exports = {
     registrarContrato
 };
