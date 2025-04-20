@@ -8,8 +8,12 @@ const Pacote = Parse.Object.extend('Pacote');
 const TaxaContrato = Parse.Object.extend('TaxaContrato');
 
 Parse.Cloud.define('v1-create-pacote', async (req) => {
-    const queryAgenda = new Parse.Query(Agenda);
-    const agenda = await queryAgenda.get(req.params.agendaId, { useMasterKey: true });
+    // const queryAgenda = new Parse.Query(Agenda);
+    // const agenda = await queryAgenda.get(req.params.agendaId, { useMasterKey: true });
+
+    const agenda = new Agenda();
+    agenda.id = req.params.agendaId;
+    await agenda.fetch({ useMasterKey: true });
     if (!agenda) throw 'AGENDA_INVALIDA';
 
     const queryCliente = new Parse.Query(Cliente);
@@ -257,29 +261,27 @@ Parse.Cloud.define("v1-delete-pacote", async (req) => {
     const query = new Parse.Query(Pacote);
     query.include('urs');
 
-    try {
-        const pacote = await query.get(req.params.pacoteId, { useMasterKey: true });
-        if (!pacote) throw 'PACOTE_INVALIDO';
-        const ursParaAtualizar = pacote.get("urs");
+    const pacote = new Pacote();
+    pacote.id = req.params.pacoteId;
+    await pacote.fetchWithInclude(['urs'], { useMasterKey: true });
 
-        if (ursParaAtualizar && ursParaAtualizar.length > 0) {
-            const ursAtualizadas = ursParaAtualizar.map((ur) => {
-                ur.unset("pacote"); // Supondo que o campo Pointer na classe Ur para Pacote se chame "pacote"
-                return ur;
-            });
+    if (!pacote) throw 'PACOTE_INVALIDO';
+    const ursParaAtualizar = pacote.get("urs");
 
-            // Salva todos os objetos Ur modificados de uma vez
-            await Parse.Object.saveAll(ursAtualizadas, { useMasterKey: true });
-            console.log(`${ursAtualizadas.length} URs tiveram a referência ao pacote ${req.params.pacoteId} removida.`);
-        } else {
-            console.log(`Não há URs relacionadas ao pacote ${req.params.pacoteId} para atualizar.`);
-        }
-        await pacote.destroy({ useMasterKey: true });
-        return true;
-    } catch (error) {
-        console.error(`Erro ao limpar referência do pacote ${req.params.pacoteId} nas URs:`, error);
-        throw error;
+    if (ursParaAtualizar && ursParaAtualizar.length > 0) {
+        const ursAtualizadas = ursParaAtualizar.map((ur) => {
+            ur.unset("pacote"); // Supondo que o campo Pointer na classe Ur para Pacote se chame "pacote"
+            return ur;
+        });
+
+        // Salva todos os objetos Ur modificados de uma vez
+        await Parse.Object.saveAll(ursAtualizadas, { useMasterKey: true });
+        console.log(`${ursAtualizadas.length} URs tiveram a referência ao pacote ${req.params.pacoteId} removida.`);
+    } else {
+        console.log(`Não há URs relacionadas ao pacote ${req.params.pacoteId} para atualizar.`);
     }
+    await pacote.destroy({ useMasterKey: true });
+    return true;
 }, {
     requireUser: true,
     fields: {
@@ -290,10 +292,9 @@ Parse.Cloud.define("v1-delete-pacote", async (req) => {
 });
 
 Parse.Cloud.define("v1-get-pacote", async (req) => {
-    const query = new Parse.Query(Pacote);
-    query.include('vendedor');
-    query.include('urs');
-    const pacote = await query.get(req.params.pacoteId, { useMasterKey: true });
+    const pacote = new Pacote();
+    pacote.id = req.params.pacoteId;
+    await pacote.fetchWithInclude(['vendedor', 'urs'], { useMasterKey: true });
     if (!pacote) throw 'PACOTE_INVALIDO';
     return formatarPacoteComprado(pacote);
 }, {
@@ -312,9 +313,9 @@ Parse.Cloud.define("v1-comprar-pacote", async (req) => {
 
     const pacoteId = req.params.pacoteId;
 
-    const query = new Parse.Query(Pacote);
-    query.include('urs');
-    const pacote = await query.get(pacoteId, { useMasterKey: true });
+    const pacote = new Pacote();
+    pacote.id = pacoteId;
+    await pacote.fetchWithInclude(['urs'], { useMasterKey: true });
     if (!pacote) throw 'PACOTE_INVALIDO';
 
     if (pacote.get('status') !== 'disponivel') throw 'PACOTE_NAO_DISPONIVEL';

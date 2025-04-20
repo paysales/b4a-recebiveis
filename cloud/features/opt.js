@@ -18,8 +18,11 @@ Parse.Cloud.define('v1-opt-in', async (req) => {
     if (config == null) throw 'CONFIG_CNPJFINANCIADOR_INVALIDA';
     const cnpjFinanciador = config.get('valor');
 
-    const queryCliente = new Parse.Query(Cliente);
-    const cliente = await queryCliente.get(req.params.clienteId, { useMasterKey: true });
+    // const queryCliente = new Parse.Query(Cliente);
+    // const cliente = await queryCliente.get(req.params.clienteId, { useMasterKey: true });
+    const cliente = new Cliente();
+    cliente.id = req.params.clienteId;
+    await cliente.fetch({ useMasterKey: true });
     if (!cliente) throw 'CLIENTE_INVALIDO';
 
     // Salvar Opt

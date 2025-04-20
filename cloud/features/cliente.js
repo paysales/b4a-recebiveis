@@ -107,12 +107,16 @@ Parse.Cloud.define('v1-get-hp-buyer', async (req) => {
 // });
 
 Parse.Cloud.define('v1-get-cliente', async (req) => {
-	const query = new Parse.Query(Cliente);
-	query.include('admins');
 
-	const result = await query.get(req.params.clienteId, { useMasterKey: true });
+	// const query = new Parse.Query(Cliente);
+	// query.include('admins');
+	const cliente = new Cliente();
+	cliente.id = req.params.clienteId;
+	await cliente.fetchWithInclude(['admins'], { useMasterKey: true });
 
-	return formatCliente(result.toJSON());
+	// const result = await query.get(req.params.clienteId, { useMasterKey: true });
+
+	return formatCliente(cliente.toJSON());
 
 
 }, {
@@ -124,8 +128,11 @@ Parse.Cloud.define('v1-get-cliente', async (req) => {
 
 Parse.Cloud.define('v1-edit-cliente', async (req) => {
 
-	const queryCliente = new Parse.Query(Cliente);
-	const cliente = await queryCliente.get(req.params.clienteId, { useMasterKey: true });
+	// const queryCliente = new Parse.Query(Cliente);
+	// const cliente = await queryCliente.get(req.params.clienteId, { useMasterKey: true });
+	const cliente = new Cliente();
+	cliente.id = req.params.clienteId;
+	await cliente.fetch({ useMasterKey: true });
 
 	if (req.user.id != cliente.get('owner').id && !cliente.get('admins').some((u) => u.id == req.user.id)) throw 'CLIENTE_INVALIDO';
 
@@ -168,9 +175,14 @@ Parse.Cloud.define('v1-edit-cliente', async (req) => {
 });
 
 Parse.Cloud.define('v1-set-cliente-arquivo', async (req) => {
-	const queryCliente = new Parse.Query(Cliente);
-	const cliente = await queryCliente.get(req.params.clienteId, { useMasterKey: true });
-	if (!cliente) throw 'CLIENTE_INVALIDO';
+
+	// const queryCliente = new Parse.Query(Cliente);
+	// const cliente = await queryCliente.get(req.params.clienteId, { useMasterKey: true });
+	const cliente = new Cliente();
+	cliente.id = req.params.clienteId;
+	await cliente.fetch({ useMasterKey: true });
+
+	if (req.user.id != cliente.get('owner').id && !cliente.get('admins').some((u) => u.id == req.user.id)) throw 'CLIENTE_INVALIDO';
 
 	const file = new Parse.File(cliente.id + '_arquivo.' + req.params.extensao, { base64: req.params.base64Arquivo });
 	cliente.set('arquivo', file);
@@ -194,9 +206,14 @@ Parse.Cloud.define('v1-set-cliente-arquivo', async (req) => {
 });
 
 Parse.Cloud.define('v1-remove-cliente-arquivo', async (req) => {
-	const queryCliente = new Parse.Query(Cliente);
-	const cliente = await queryCliente.get(req.params.clienteId, { useMasterKey: true });
-	if (!cliente) throw 'CLIENTE_INVALIDO';
+
+	// const queryCliente = new Parse.Query(Cliente);
+	// const cliente = await queryCliente.get(req.params.clienteId, { useMasterKey: true });
+	const cliente = new Cliente();
+	cliente.id = req.params.clienteId;
+	await cliente.fetch({ useMasterKey: true });
+
+	if (req.user.id != cliente.get('owner').id && !cliente.get('admins').some((u) => u.id == req.user.id)) throw 'CLIENTE_INVALIDO';
 
 	await cliente.get('arquivo').destroy({ useMasterKey: true });
 	cliente.unset('arquivo');

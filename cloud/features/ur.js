@@ -76,9 +76,9 @@ Parse.Cloud.define('v1-get-urs', async (req) => {
 });
 Parse.Cloud.define('v1-get-urs-by-agenda', async (req) => {
 
-    const queryAgenda = new Parse.Query(Agenda);
-    queryAgenda.equalTo('objectId', req.params.agendaId);
-    const agenda = await queryAgenda.first({ useMasterKey: true });
+    const agenda = new Agenda();
+    agenda.id = req.params.agendaId;
+    await agenda.fetch({ useMasterKey: true });
     if (!agenda) throw 'AGENDA_INVALIDA';
     //validar que dataReferencia seja igual a data atual em formato aaaa-mm-dd
     var dataRef = new Date();

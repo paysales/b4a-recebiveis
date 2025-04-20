@@ -25,10 +25,15 @@ Parse.Cloud.define('v1-registrar-contrato', async (req) => {
 
 async function registrarContrato(pacoteId, compradorId) {
 
-    const query = new Parse.Query(Pacote);
-    query.include('urs');
-    query.include('vendedor');
-    const pacote = await query.get(pacoteId, { useMasterKey: true });
+    // const query = new Parse.Query(Pacote);
+    // query.include('urs');
+    // query.include('vendedor');
+    // const pacote = await query.get(pacoteId, { useMasterKey: true });
+
+    const pacote = new Pacote();
+    pacote.id = pacoteId;
+    await pacote.fetchWithInclude(['vendedor', 'urs'], { useMasterKey: true });
+
     if (!pacote) throw 'PACOTE_INVALIDO';
     console.log('exitem pacote para virar contrato')
     if (pacote.get('status') !== 'em negociacao') throw 'PACOTE_INVALIDO';
@@ -40,9 +45,14 @@ async function registrarContrato(pacoteId, compradorId) {
     if (!vendedor) throw 'VENDEDOR_INVALIDO';
 
     //comprador
-    const queryCliente = new Parse.Query(Cliente);
-    queryCliente.include('banco');
-    const comprador = await queryCliente.get(compradorId, { useMasterKey: true });
+    // const queryCliente = new Parse.Query(Cliente);
+    // queryCliente.include('banco');
+    // const comprador = await queryCliente.get(compradorId, { useMasterKey: true });
+    // if (!comprador) throw 'COMPRADOR_INVALIDO';
+
+    const comprador = new Cliente();
+    comprador.id = compradorId;
+    await comprador.fetchWithInclude(['banco'], { useMasterKey: true });
     if (!comprador) throw 'COMPRADOR_INVALIDO';
 
     const banco = comprador.get('banco');
