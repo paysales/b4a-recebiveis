@@ -748,3 +748,7 @@ async function salvarDadosProdNoBack4App(dadosJson, fileName, zipFilePath) {
         await cliente.save(null, { useMasterKey: true });
     }
 }
+
+module.exports = {
+    deleteAllRelatedURRecords
+}

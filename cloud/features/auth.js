@@ -1,6 +1,20 @@
 const brasilApi = require("./brasil_api.js");
+const sftp = require("./sftp_homol.js");
 const Cliente = Parse.Object.extend('Cliente');
 const Conta = Parse.Object.extend('Conta');
+const Device = Parse.Object.extend('Device');
+const Notification = Parse.Object.extend('Notification');
+
+const Recipient = require("mailersend").Recipient;
+const EmailParams = require("mailersend").EmailParams;
+const MailerSend = require("mailersend").MailerSend;
+const Sender = require("mailersend").Sender;
+
+const resetPasswordMaxTime = 1000 * 60 * 60; // 1 hora
+
+const mailersend = new MailerSend({
+	apiKey: process.env.MAILERSEND_KEY,
+});
 
 Parse.Cloud.define('v1-login', async (req) => {
 	const user = await Parse.User.logIn(req.params.username.toLowerCase().trim(), req.params.password);
@@ -371,6 +385,164 @@ Parse.Cloud.define("v1-validar-senha", async (req) => {
 	}
 });
 
+Parse.Cloud.afterDelete('_User', async (request) => {
+	const user = request.object;
+
+	const queryDevices = new Parse.Query(Device);
+	queryDevices.equalTo('user', user);
+	const devices = await queryDevices.find({ useMasterKey: true });
+
+	await Parse.Object.destroyAll(devices, { useMasterKey: true });
+
+	const queryNotifications = new Parse.Query(Notification);
+	queryNotifications.equalTo('user', user);
+	const notifications = await queryNotifications.find({ useMasterKey: true });
+
+	await Parse.Object.destroyAll(notifications, { useMasterKey: true });
+
+	//Clients emque ele é administrador ?
+	const Cliente = Parse.Object.extend("Cliente");
+	const queryCliente = new Parse.Query(Cliente);
+	queryCliente.contains('admins', user);
+	const clientes = await queryCliente.find({ useMasterKey: true });
+
+	if (clientes.length > 0) {
+		const promisesAtualizacao = clientes.map(async (cliente) => {
+			const relation = cliente.relation("admin");
+			relation.remove(user);
+			await cliente.save(null, { useMasterKey: true });
+
+			// Após remover o usuário, verifica se a relation 'admin' está vazia
+			const queryAdmins = relation.query();
+			const adminsRestantes = await queryAdmins.count({ useMasterKey: true });
+
+			if (adminsRestantes === 0) {
+				// Se não há mais admins, apaga o cliente
+				//Buscar agendas
+				const queryAgenda = new Parse.Query(Agenda);
+				queryAgenda.equalTo('cliente', cliente);
+				const agendas = await queryAgenda.find({ useMasterKey: true });
+				for (const agenda of agendas) {
+					//pagar as Urs
+					await sftp.deleteAllRelatedURRecords(agenda);
+					await agenda.destroy({ useMasterKey: true });
+				}
+				// await cliente.destroy({ useMasterKey: true });
+				//Contratos
+				// const queryContrato = new Parse.Query(Contrato);
+				// queryContrato.equalTo('cliente', cliente);
+				// const contratos = await queryContrato.find({ useMasterKey: true });
+				// await Parse.Object.destroyAll(contratos, { useMasterKey: true });
+
+			}
+		});
+		await Promise.all(promisesAtualizacao);
+	}
+});
+
+
+Parse.Cloud.define('v1-delete-account', async (req) => {
+	const user = await Parse.User.logIn(req.user.getUsername(), req.params.password);
+	await user.destroy({ useMasterKey: true });
+}, {
+	fields: {
+		password: {
+			required: true
+		}
+	},
+	requireUser: true
+});
+
+
+Parse.Cloud.define("v1-request-password-reset", async (req) => {
+	const queryUser = new Parse.Query(Parse.User);
+	queryUser.equalTo("username", req.params.username);
+	const user = await queryUser.first({ useMasterKey: true });
+	if (user) {
+		const code = getRndInt(100000, 999999);
+		user.set('resetPasswordCode', code);
+		user.set('resetPasswordDateTime', new Date());
+		user.set('resetPasswordAttempts', 0);
+		await user.save(null, { useMasterKey: true });
+
+		// await sendResetPasswordCode(user.get('fullname'), user.get('email'), code);
+	}
+}, {
+	fields: {
+		username: {
+			required: true
+		}
+	}
+});
+
+
+Parse.Cloud.define("v1-set-new-password", async (req) => {
+	const queryUser = new Parse.Query(Parse.User);
+	queryUser.equalTo("username", req.params.username);
+	const user = await queryUser.first({ useMasterKey: true });
+	if (!user) {
+		throw 'CODIGO_INVALIDO';
+	}
+
+	if (user.get('resetPasswordCode') != req.params.code || user.get('resetPasswordAttempts') >= 5) {
+		user.increment('resetPasswordAttempts');
+		await user.save(null, { useMasterKey: true });
+		if (user.get('resetPasswordAttempts') >= 5) {
+			throw 'EXCEDEU_NUM_TENTATIVAS';
+		} else {
+			throw 'CODIGO_INVALIDO';
+		}
+	} else if (new Date() - user.get('resetPasswordDateTime') > resetPasswordMaxTime) {
+		throw 'EXCEDEU_TEMPO_MAXIMO';
+	} else {
+		user.set('password', req.params.password);
+		user.unset('resetPasswordCode');
+		user.unset('resetPasswordDateTime');
+		user.unset('resetPasswordAttempts');
+		await user.save(null, { useMasterKey: true });
+	}
+}, {
+	fields: {
+		username: {
+			required: true
+		},
+		code: {
+			required: true
+		},
+		password: {
+			required: true
+		}
+	}
+});
+
+function getRndInt(min, max) {
+	return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+async function sendResetPasswordCode(userName, userEmail, code) {
+	// const recipients = [new Recipient(userEmail, userName)];
+	const recipients = [new Recipient("dev@paysales.com.br", userName)];
+
+	const sentFrom = new Sender("dev@paysales.com.br", "Paysales");
+
+	const personalization = [
+		{
+			email: "dev@paysales.com.br",
+			data: {
+				code: code,
+				name: userName
+			},
+		}
+	];
+
+	const emailParams = new EmailParams()
+		.setFrom(sentFrom)
+		.setTo(recipients)
+		.setTemplateId('jpzkmgq8xv2g059v')
+		.setPersonalization(personalization);
+
+	await mailersend.email.send(emailParams);
+}
 
 function formatCliente(u) {
 	return {
