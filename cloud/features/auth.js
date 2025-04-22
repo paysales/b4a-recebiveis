@@ -179,8 +179,15 @@ Parse.Cloud.define('v1-sign-up-all', async (req) => {
 	user.set('email', req.params.email.toLowerCase());
 	user.set('nomeCompleto', req.params.fullName);
 	user.set('celular', req.params.cellPhone);
-	// user.set('selfie', req.params.selfie);
+
 	await user.signUp(null, { useMasterKey: true });
+	const fileFrente = new Parse.File(user.id + '_docFrente', { base64: req.params.docFrente });
+	user.set('docFrente', fileFrente);
+	const fileVerso = new Parse.File(user.id + '_docVerso', { base64: req.params.docVerso });
+	user.set('docVerso', fileVerso);
+	const fileVideo = new Parse.File(user.id + '_docVideo', { base64: req.params.capturedVideo });
+	user.set('selfie', fileVideo);
+	await user.save(null, { useMasterKey: true });
 
 	//Dados da Conta
 	const conta = new Conta();
@@ -343,6 +350,33 @@ Parse.Cloud.define('v1-set-user-selfie', async (req) => {
 	}
 });
 
+Parse.Cloud.define('v1-set-user-docs', async (req) => {
+	const user = req.user;
+
+	const fileFrente = new Parse.File(user.id + '_arquivo.' + req.params.extensao, { base64: req.params.docFrente });
+	user.set('docFrente', fileFrente);
+
+	const fileVerso = new Parse.File(user.id + '_arquivo.' + req.params.extensao, { base64: req.params.docVerso });
+	user.set('docVerso', fileVerso);
+
+	await user.save(null, { useMasterKey: true });
+
+	return formatUser(user.toJSON());
+
+}, {
+	requireUser: true,
+	fields: {
+		docFrente: {
+			required: true
+		},
+		docVerso: {
+			required: true
+		},
+		extensao: {
+			required: true
+		}
+	}
+});
 
 Parse.Cloud.define('v1-remove-user-selfie', async (req) => {
 	const user = req.user;
