@@ -179,14 +179,50 @@ Parse.Cloud.define('v1-sign-up-all', async (req) => {
 	user.set('email', req.params.email.toLowerCase());
 	user.set('nomeCompleto', req.params.fullName);
 	user.set('celular', req.params.cellPhone);
-
 	await user.signUp(null, { useMasterKey: true });
-	const fileFrente = new Parse.File(user.id + '_docFrente', { base64: req.params.docFrente });
-	user.set('docFrente', fileFrente);
-	const fileVerso = new Parse.File(user.id + '_docVerso', { base64: req.params.docVerso });
-	user.set('docVerso', fileVerso);
-	const fileVideo = new Parse.File(user.id + '_docVideo', { base64: req.params.capturedVideo });
-	user.set('selfie', fileVideo);
+	
+	const mimeTypeFrente = getMimeTypeFromBase64(req.params.docFrente);
+	let fileFrente;
+
+    if (mimeTypeFrente) {
+      const fileData = Buffer.from(req.params.docFrente.split(';base64,').pop(), 'base64');
+      fileFrente = new Parse.File(`${user.id}_docFrente`, { base64: fileData }, mimeTypeFrente);
+    } else {
+      // Fallback se o tipo MIME não puder ser detectado
+      const fileData = Buffer.from(docFrente.split(';base64,').pop(), 'base64');
+      fileFrente = new Parse.File(`${userId}_docFrente.jpg`, { base64: fileData }); // Assumindo .jpg como padrão
+      console.warn('Não foi possível detectar o tipo MIME da imagem da frente.');
+    }
+    await fileFrente.save();
+    user.set('docFrente', fileFrente);
+	const mimeTypeVerso = getMimeTypeFromBase64(req.params.docVerso);
+	let fileVerso;
+
+    if (mimeTypeVerso) {
+      const fileData = Buffer.from(req.params.docVerso.split(';base64,').pop(), 'base64');
+      fileVerso = new Parse.File(`${user.id}_docVerso`, { base64: fileData }, mimeTypeVerso);
+    } else {
+      // Fallback se o tipo MIME não puder ser detectado
+      const fileData = Buffer.from(docVerso.split(';base64,').pop(), 'base64');
+      fileVerso = new Parse.File(`${user.id}_docVerso.jpg`, { base64: fileData }); // Assumindo .jpg como padrão
+      console.warn('Não foi possível detectar o tipo MIME da imagem do verso.');
+    }
+    await fileVerso.save();
+    user.set('docVerso', fileVerso);
+	const mimeTypeVideo = getMimeTypeFromBase64(req.params.capturedVideo);
+	let fileVideo;
+
+    if (mimeTypeVideo) {
+      const fileData = Buffer.from(req.params.capturedVideo.split(';base64,').pop(), 'base64');
+      fileVideo = new Parse.File(`${user.id}_docVideo`, { base64: fileData }, mimeTypeVideo);
+    } else {
+      // Fallback se o tipo MIME não puder ser detectado
+      const fileData = Buffer.from(capturedVideo.split(';base64,').pop(), 'base64');
+      fileVideo = new Parse.File(`${user.id}_docVideo.mp4`, { base64: fileData }); // Assumindo .mp4 como padrão
+      console.warn('Não foi possível detectar o tipo MIME do vídeo.');
+    }
+    await fileVideo.save();
+    user.set('selfie', fileVideo);
 	await user.save(null, { useMasterKey: true });
 
 	//Dados da Conta
@@ -603,3 +639,11 @@ function formatCliente(u) {
 		// ondeConheceu: u.ondeConheceu
 	}
 }
+
+function getMimeTypeFromBase64(base64String) {
+	const prefix = base64String.substring(0, base64String.indexOf(';base64,'));
+	if (prefix.startsWith('data:')) {
+	  return prefix.substring(5);
+	}
+	return null;
+  }
