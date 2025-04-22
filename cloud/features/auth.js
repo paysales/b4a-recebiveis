@@ -362,6 +362,7 @@ function formatUser(u) {
 		username: u.username,
 		token: u.sessionToken,
 		type: u.tipo,
+		status: u.status,
 		cpf: u.cpf,
 		name: u.nomeCompleto,
 		email: u.email,
